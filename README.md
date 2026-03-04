@@ -1,6 +1,4 @@
 # Warehouse-Slotting-Optimizer
-physics ITMO comand project
-
-здарова пацаны
-здарова)
-
+## Phyiscs ITMO comand project
+## Description
+Оптимизирует размещение SKU на складе на основе истории заказов, габаритов и маршрутов сборки, чтобы сократить время пикинга и количество перемещений/переполнений зон.
