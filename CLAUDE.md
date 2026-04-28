@@ -31,20 +31,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              UI / Dashboard (React)              │
+│              UI / Dashboard (React)             │
 │  Карта склада · Рекомендации · Метрики · Графы  │
 ├─────────────────────────────────────────────────┤
-│         Слой 3: Explainability Layer             │
-│  Причина каждой рекомендации в человеческом виде │
+│         Слой 3: Explainability Layer            │
+│  Причина каждой рекомендации в человеческом виде│
 ├─────────────────────────────────────────────────┤
-│         Слой 2: Routing Graph                    │
+│         Слой 2: Routing Graph                   │
 │  Граф склада · Shortest path · Ограничения      │
 ├─────────────────────────────────────────────────┤
-│         Слой 1: Scoring Engine                   │
-│  Частота заказов · Co-pick матрица · Расстояние  │
+│         Слой 1: Scoring Engine                  │
+│  Частота заказов · Co-pick матрица · Расстояние │
 ├─────────────────────────────────────────────────┤
-│         Data Layer (PostgreSQL + Redis)           │
-│  SKU · Orders · Warehouse layout · Sessions      │
+│         Data Layer (PostgreSQL + Redis)         │
+│  SKU · Orders · Warehouse layout · Sessions     │
 └─────────────────────────────────────────────────┘
 ```
 
