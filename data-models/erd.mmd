@@ -1,0 +1,75 @@
+erDiagram
+
+    WAREHOUSES {
+        bigint      id              PK
+        varchar     name
+        int         rows
+        int         columns
+        int         dock_x
+        int         dock_y
+        decimal     aisle_width_m
+        timestamp   created_at
+    }
+
+    SKUS {
+        bigint      id              PK
+        bigint      warehouse_id    FK
+        varchar     code
+        varchar     name
+        decimal     weight_kg
+        decimal     volume_m3
+        varchar     category
+        timestamp   created_at
+    }
+
+    SLOTS {
+        bigint      id              PK
+        bigint      warehouse_id    FK
+        bigint      current_sku_id  FK  "nullable"
+        varchar     label
+        int         row
+        int         col
+        int         level
+        varchar     zone
+        decimal     capacity_kg
+    }
+
+    ORDERS {
+        bigint      id              PK
+        bigint      warehouse_id    FK
+        varchar     external_id
+        timestamp   created_at
+    }
+
+    ORDER_LINES {
+        bigint      id              PK
+        bigint      order_id        FK
+        bigint      sku_id          FK
+        int         quantity
+    }
+
+    RECOMMENDATIONS {
+        bigint      id              PK
+        bigint      warehouse_id    FK
+        bigint      sku_id          FK
+        bigint      from_slot_id    FK  "nullable"
+        bigint      to_slot_id      FK
+        decimal     score_delta
+        jsonb       explanation_json
+        varchar     status          "pending|accepted|rejected"
+        timestamp   created_at
+    }
+
+    WAREHOUSES ||--o{ SKUS          : "manages"
+    WAREHOUSES ||--o{ SLOTS         : "contains"
+    WAREHOUSES ||--o{ ORDERS        : "receives"
+    WAREHOUSES ||--o{ RECOMMENDATIONS : "has"
+
+    SKUS       |o--o{ SLOTS         : "stored_in (current)"
+    SKUS       ||--o{ ORDER_LINES   : "ordered_via"
+    SKUS       ||--o{ RECOMMENDATIONS : "targeted_by"
+
+    ORDERS     ||--o{ ORDER_LINES   : "includes"
+
+    SLOTS      |o--o{ RECOMMENDATIONS : "from_slot"
+    SLOTS      ||--o{ RECOMMENDATIONS : "to_slot"
