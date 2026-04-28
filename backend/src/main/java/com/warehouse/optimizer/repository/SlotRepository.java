@@ -16,4 +16,7 @@ public interface SlotRepository extends JpaRepository<Slot, Long> {
 
     @Query("SELECT s FROM Slot s WHERE s.warehouse.id = :wid AND s.currentSku.id = :skuId")
     List<Slot> findByWarehouseIdAndCurrentSkuId(@Param("wid") Long warehouseId, @Param("skuId") Long skuId);
+
+    @Query("SELECT s FROM Slot s LEFT JOIN FETCH s.currentSku WHERE s.warehouse.id = :wid")
+    List<Slot> findByWarehouseIdWithSku(@Param("wid") Long warehouseId);
 }

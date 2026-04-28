@@ -27,6 +27,12 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.UNPROCESSABLE_ENTITY, "SCORING_ERROR", ex.getMessage());
     }
 
+    @ExceptionHandler(RoutingException.class)
+    public ResponseEntity<Map<String, Object>> handleRouting(RoutingException ex) {
+        log.warn("Routing error: {}", ex.getMessage());
+        return error(HttpStatus.UNPROCESSABLE_ENTITY, "ROUTING_ERROR", ex.getMessage());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleBadArg(IllegalArgumentException ex) {
         return error(HttpStatus.BAD_REQUEST, "BAD_REQUEST", ex.getMessage());
