@@ -1,53 +1,100 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { ConfigProvider, Layout, Menu, Typography } from 'antd';
+import type { MenuProps } from 'antd';
+import {
+  UploadOutlined,
+  AppstoreOutlined,
+  BulbOutlined,
+  BarChartOutlined,
+  NodeIndexOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
 import { UploadPage } from './pages/UploadPage';
+import { appTheme } from './theme';
 
-export function App() {
+const { Sider, Content } = Layout;
+
+const NAV_ITEMS: MenuProps['items'] = [
+  { key: '/upload',          label: 'Import Data',     icon: <UploadOutlined /> },
+  { key: '/map',             label: 'Warehouse Map',   icon: <AppstoreOutlined /> },
+  { key: '/recommendations', label: 'Recommendations', icon: <BulbOutlined /> },
+  { key: '/scoring',         label: 'Scoring',         icon: <BarChartOutlined /> },
+  { key: '/routes',          label: 'Routes',          icon: <NodeIndexOutlined /> },
+  { key: '/settings',        label: 'Settings',        icon: <SettingOutlined /> },
+];
+
+const NAV_KEYS = NAV_ITEMS!.map(item => (item as { key: string }).key);
+
+function AppShell() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  const selectedKey = NAV_KEYS.find(k => pathname === k || pathname.startsWith(k + '/')) ?? '/upload';
+
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-gray-50 flex">
-        {/* Sidebar */}
-        <nav className="w-52 bg-white border-r border-gray-200 flex flex-col py-6 px-3 gap-1 shrink-0">
-          <span className="px-3 mb-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider
+        width={208}
+        theme="light"
+        style={{
+          borderRight: '1px solid #f0f0f0',
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          overflow: 'auto',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            padding: '20px 16px 14px',
+            borderBottom: '1px solid #f0f0f0',
+          }}
+        >
+          <Typography.Text
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: '#8c8c8c',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
             Warehouse Optimizer
-          </span>
-
-          {NAV_ITEMS.map(({ to, label, icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => [
-                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'text-gray-600 hover:bg-gray-100',
-              ].join(' ')}
-            >
-              <span className="text-base">{icon}</span>
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Main content */}
-        <main className="flex-1 overflow-auto">
-          <Routes>
-            <Route path="/" element={<UploadPage />} />
-            <Route path="/upload" element={<UploadPage />} />
-            <Route path="*" element={
-              <div className="p-10 text-gray-400 text-sm">Coming in next phase…</div>
-            } />
-          </Routes>
-        </main>
-      </div>
-    </BrowserRouter>
+          </Typography.Text>
+        </div>
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          items={NAV_ITEMS}
+          onClick={({ key }) => navigate(key)}
+          style={{ border: 'none', paddingTop: 8 }}
+        />
+      </Sider>
+      <Content style={{ background: '#f5f5f5', overflow: 'auto' }}>
+        <Routes>
+          <Route path="/" element={<UploadPage />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route
+            path="*"
+            element={
+              <div style={{ padding: 40, color: '#8c8c8c', fontSize: 14 }}>
+                Coming in next phase…
+              </div>
+            }
+          />
+        </Routes>
+      </Content>
+    </Layout>
   );
 }
 
-const NAV_ITEMS = [
-  { to: '/upload',          label: 'Import Data',    icon: '📤' },
-  { to: '/map',             label: 'Warehouse Map',  icon: '🗺️'  },
-  { to: '/recommendations', label: 'Recommendations',icon: '💡' },
-  { to: '/scoring',         label: 'Scoring',        icon: '📊' },
-  { to: '/routes',          label: 'Routes',         icon: '🚶' },
-  { to: '/settings',        label: 'Settings',       icon: '⚙️'  },
-];
+export function App() {
+  return (
+    <ConfigProvider theme={appTheme}>
+      <BrowserRouter>
+        <AppShell />
+      </BrowserRouter>
+    </ConfigProvider>
+  );
+}

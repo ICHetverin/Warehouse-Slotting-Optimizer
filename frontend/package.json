@@ -10,11 +10,13 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.2.2",
+    "antd": "^6.3.7",
+    "axios": "^1.7.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
-    "recharts": "^2.13.3",
-    "axios": "^1.7.7"
+    "recharts": "^2.13.3"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

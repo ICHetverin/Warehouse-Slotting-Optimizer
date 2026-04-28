@@ -1,0 +1,57 @@
+# ── Java / Maven ─────────────────────────────────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+replay_pid*
+
+# Maven wrapper binary (generated; not committed)
+.mvn/wrapper/maven-wrapper.jar
+
+# Spring Boot devtools restart trigger
+.reloadtrigger
+
+# ── Node / Vite / React ───────────────────────────────────────────────────────
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# ── Environment & secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+application-local.yml
+application-secrets.yml
+**/src/main/resources/application-local.yml
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+spring.log
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Claude Code internal ──────────────────────────────────────────────────────
+.claude/

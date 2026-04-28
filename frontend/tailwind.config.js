@@ -5,11 +5,15 @@ export default {
     extend: {
       colors: {
         brand: {
-          50:  '#f0f9ff',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
+          50:  '#e6f4ff',
+          500: '#1677ff',
+          600: '#0958d9',
+          700: '#003eb3',
         },
+      },
+      fontFamily: {
+        sans: ["'Plus Jakarta Sans'", 'system-ui', 'sans-serif'],
+        mono: ["'JetBrains Mono'", 'monospace'],
       },
     },
   },
