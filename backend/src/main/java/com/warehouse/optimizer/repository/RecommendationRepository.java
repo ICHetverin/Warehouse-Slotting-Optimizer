@@ -11,4 +11,6 @@ public interface RecommendationRepository extends JpaRepository<Recommendation, 
     Page<Recommendation> findByWarehouseIdAndStatus(Long warehouseId, RecommendationStatus status, Pageable pageable);
 
     Page<Recommendation> findByWarehouseId(Long warehouseId, Pageable pageable);
+
+    void deleteByWarehouseIdAndStatus(Long warehouseId, RecommendationStatus status);
 }
