@@ -11,14 +11,6 @@ import type { RouteComparison } from '../types';
 
 const { Title, Paragraph, Text } = Typography;
 
-function DistanceBadge({ value, color }: { value: number; color?: string }) {
-  return (
-    <span style={{ fontVariantNumeric: 'tabular-nums', color: color ?? 'inherit' }}>
-      {value.toFixed(1)} m
-    </span>
-  );
-}
-
 function RoutePathViz({
   path,
   label,

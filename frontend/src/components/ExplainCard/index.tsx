@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import type { ExplanationReason, RecommendationResponse } from '../../types';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 const REASON_ICON: Record<string, React.ReactNode> = {
   velocity:    <ThunderboltOutlined style={{ color: '#1677ff' }} />,
