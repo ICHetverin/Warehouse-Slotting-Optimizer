@@ -103,9 +103,9 @@ public class RecommendationService {
 
         List<Recommendation> recs = statusEnum != null
                 ? recommendationRepo.findByWarehouseIdAndStatus(
-                        warehouseId, statusEnum, PageRequest.of(0, limit, sort))
+                        warehouseId, statusEnum, PageRequest.of(0, limit, sort)).getContent()
                 : recommendationRepo.findByWarehouseId(
-                        warehouseId, PageRequest.of(0, limit, sort));
+                        warehouseId, PageRequest.of(0, limit, sort)).getContent();
 
         Map<Long, Sku>  skuMap  = skuRepo.findByWarehouseId(warehouseId).stream()
                 .collect(Collectors.toMap(Sku::getId, s -> s));
