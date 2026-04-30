@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Alert, Card, Col, InputNumber, Row, Select, Spin,
-  Tooltip, Typography, Space, Tag,
+  Alert, Card, Col, InputNumber, Row, Spin,
+  Typography, Space, Tag,
 } from 'antd';
 import { api } from '../api/client';
-import type { GraphNode, ScoringRunResponse, WarehouseGraphResponse } from '../types';
+import type { ScoringRunResponse, WarehouseGraphResponse } from '../types';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -140,7 +140,7 @@ export function WarehouseMapPage() {
       {!loading && graphData && (
         <Row gutter={16}>
           <Col flex="auto">
-            <Card bodyStyle={{ overflowX: 'auto', padding: 0 }}>
+            <Card styles={{ body: { overflowX: 'auto', padding: 0 } }}>
               <svg
                 width={svgW}
                 height={svgH}

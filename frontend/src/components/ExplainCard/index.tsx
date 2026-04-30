@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Button, Card, Col, Collapse, Progress, Row, Space, Tag, Tooltip, Typography,
+  Button, Card, Col, Progress, Row, Space, Tag, Tooltip, Typography,
 } from 'antd';
 import {
   CheckOutlined,
@@ -14,7 +14,7 @@ import {
 } from '@ant-design/icons';
 import type { ExplanationReason, RecommendationResponse } from '../../types';
 
-const { Text, Paragraph } = Typography;
+const { Text } = Typography;
 
 const REASON_ICON: Record<string, React.ReactNode> = {
   velocity:    <ThunderboltOutlined style={{ color: '#1677ff' }} />,
@@ -101,7 +101,7 @@ export function ExplainCard({ rec, onAccept, onReject, accepting, rejecting }: P
         opacity: isRejected ? 0.65 : 1,
         transition: 'opacity 0.2s',
       }}
-      bodyStyle={{ padding: '12px 16px' }}
+      styles={{ body: { padding: '12px 16px' } }}
     >
       <Row align="middle" gutter={12} wrap={false}>
         {/* SKU + slot move */}
