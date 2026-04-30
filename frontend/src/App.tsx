@@ -9,8 +9,12 @@ import {
   NodeIndexOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
-import { UploadPage } from './pages/UploadPage';
-import { appTheme } from './theme';
+import { UploadPage }          from './pages/UploadPage';
+import { ScoringPage }         from './pages/ScoringPage';
+import { WarehouseMapPage }    from './pages/WarehouseMapPage';
+import { RoutesPage }          from './pages/RoutesPage';
+import { RecommendationsPage } from './pages/RecommendationsPage';
+import { appTheme }            from './theme';
 
 const { Sider, Content } = Layout;
 
@@ -29,7 +33,8 @@ function AppShell() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  const selectedKey = NAV_KEYS.find(k => pathname === k || pathname.startsWith(k + '/')) ?? '/upload';
+  const selectedKey =
+    NAV_KEYS.find(k => pathname === k || pathname.startsWith(k + '/')) ?? '/upload';
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -73,13 +78,17 @@ function AppShell() {
       </Sider>
       <Content style={{ background: '#f5f5f5', overflow: 'auto' }}>
         <Routes>
-          <Route path="/" element={<UploadPage />} />
-          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/"                element={<UploadPage />} />
+          <Route path="/upload"          element={<UploadPage />} />
+          <Route path="/map"             element={<WarehouseMapPage />} />
+          <Route path="/scoring"         element={<ScoringPage />} />
+          <Route path="/routes"          element={<RoutesPage />} />
+          <Route path="/recommendations" element={<RecommendationsPage />} />
           <Route
             path="*"
             element={
               <div style={{ padding: 40, color: '#8c8c8c', fontSize: 14 }}>
-                Coming in next phase…
+                Coming soon…
               </div>
             }
           />
