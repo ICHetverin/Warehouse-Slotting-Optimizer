@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Alert, Button, Card, Col, InputNumber, Row,
-  Segmented, Select, Spin, Statistic, Typography, Space,
+  Segmented, Spin, Statistic, Typography, Space,
 } from 'antd';
 import { BulbOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { ExplainCard } from '../components/ExplainCard';

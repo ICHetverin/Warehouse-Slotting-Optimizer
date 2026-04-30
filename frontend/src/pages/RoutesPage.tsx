@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Alert, Button, Card, Col, Divider, Form, InputNumber,
+  Alert, Button, Card, Col, Form, InputNumber,
   Row, Space, Statistic, Tag, Typography, Input,
 } from 'antd';
 import {
