@@ -4,7 +4,7 @@ import {
   Select, Space, Steps, Tag, Typography,
 } from 'antd';
 import { CheckCircleFilled, InfoCircleOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import { DropZone } from '../components/Upload/DropZone';
 import { api } from '../api/client';
 import type { Warehouse } from '../types';
@@ -59,7 +59,7 @@ function FormatBox({ title, columns, example, note }: {
 // ── Основная страница ─────────────────────────────────────────────────────────
 
 export function DatasetImportPage() {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const [step, setStep]             = useState<StepKey>('warehouse');
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);

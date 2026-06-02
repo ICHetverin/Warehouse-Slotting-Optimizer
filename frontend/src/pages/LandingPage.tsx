@@ -6,13 +6,10 @@ import {
 import {
   AppstoreOutlined,
   ArrowRightOutlined,
-  BarChartOutlined,
   BulbOutlined,
-  CheckCircleOutlined,
   NodeIndexOutlined,
   PartitionOutlined,
   ThunderboltOutlined,
-  UploadOutlined,
 } from '@ant-design/icons';
 import { api } from '../api/client';
 
