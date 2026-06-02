@@ -19,6 +19,38 @@ const http = axios.create({
 });
 
 export const api = {
+  // ── Dataset import (реальный датасет склада) ──────────────────────────────
+
+  importSupportPoints(warehouseId: number, file: File): Promise<ApiResponse<Record<string, number>>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<Record<string, number>>>(
+      `/import/support-points?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  importStorageLocations(warehouseId: number, file: File): Promise<ApiResponse<UploadResult>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<UploadResult>>(
+      `/import/storage-locations?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  importProducts(warehouseId: number, file: File): Promise<ApiResponse<UploadResult>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<UploadResult>>(
+      `/import/products?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  importCustomerOrders(warehouseId: number, file: File): Promise<ApiResponse<UploadResult>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<UploadResult>>(
+      `/import/customer-orders?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  importStorageStrategy(warehouseId: number, file: File): Promise<ApiResponse<{ assigned: number }>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<{ assigned: number }>>(
+      `/import/storage-strategy?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
   // ── Demo ──────────────────────────────────────────────────────────────────
 
   seedDemo(): Promise<ApiResponse<DemoSeedResponse>> {
