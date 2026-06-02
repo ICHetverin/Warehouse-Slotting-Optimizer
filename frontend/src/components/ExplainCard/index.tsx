@@ -69,9 +69,9 @@ function ReasonRow({ reason }: { reason: ExplanationReason }) {
 }
 
 interface Props {
-  rec: RecommendationResponse;
-  onAccept: (id: number) => void;
-  onReject: (id: number) => void;
+  rec:       RecommendationResponse;
+  onAccept:  (id: number) => void;
+  onReject:  (id: number) => void;
   accepting?: boolean;
   rejecting?: boolean;
 }
@@ -79,16 +79,16 @@ interface Props {
 export function ExplainCard({ rec, onAccept, onReject, accepting, rejecting }: Props) {
   const [expanded, setExpanded] = useState(false);
 
-  const exp = rec.explanation;
+  const exp        = rec.explanation;
   const isPending  = rec.status === 'PENDING';
   const isAccepted = rec.status === 'ACCEPTED';
   const isRejected = rec.status === 'REJECTED';
 
   const statusTag = isAccepted
-    ? <Tag color="success">Accepted</Tag>
+    ? <Tag color="success">Принято</Tag>
     : isRejected
-    ? <Tag color="error">Rejected</Tag>
-    : <Tag color="processing">Pending</Tag>;
+    ? <Tag color="error">Отклонено</Tag>
+    : <Tag color="processing">Ожидает</Tag>;
 
   const deltaColor = rec.scoreDelta > 0 ? '#16A34A' : rec.scoreDelta < 0 ? '#DC2626' : '#595959';
 
@@ -104,7 +104,7 @@ export function ExplainCard({ rec, onAccept, onReject, accepting, rejecting }: P
       styles={{ body: { padding: '12px 16px' } }}
     >
       <Row align="middle" gutter={12} wrap={false}>
-        {/* SKU + slot move */}
+        {/* Артикул + перемещение */}
         <Col flex="auto" style={{ minWidth: 0 }}>
           <Space size={8} wrap>
             <Text strong style={{ fontSize: 14 }}>{rec.skuCode}</Text>
@@ -116,36 +116,36 @@ export function ExplainCard({ rec, onAccept, onReject, accepting, rejecting }: P
 
           {exp && (
             <div style={{ marginTop: 6, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <Tooltip title="Score improvement from current to proposed slot">
+              <Tooltip title="Улучшение скора при переносе в предложенную ячейку">
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
                   <RiseOutlined style={{ color: deltaColor }} />
                   <Text style={{ fontSize: 12, color: deltaColor }}>
-                    {rec.scoreDelta > 0 ? '+' : ''}{rec.scoreDelta.toFixed(3)} score
+                    {rec.scoreDelta > 0 ? '+' : ''}{rec.scoreDelta.toFixed(3)} скор
                   </Text>
                 </span>
               </Tooltip>
               {exp.impact.avgRouteSavingsM > 0 && (
-                <Tooltip title="Estimated route savings per pick">
+                <Tooltip title="Ожидаемая экономия маршрута на один пик">
                   <Text style={{ fontSize: 12, color: '#595959' }}>
-                    ~{exp.impact.avgRouteSavingsM.toFixed(1)} m saved/pick
+                    ~{exp.impact.avgRouteSavingsM.toFixed(1)} м/пик
                   </Text>
                 </Tooltip>
               )}
               {exp.impact.dailyPicksAffected > 0 && (
                 <Text style={{ fontSize: 12, color: '#595959' }}>
-                  {exp.impact.dailyPicksAffected} picks/day affected
+                  {exp.impact.dailyPicksAffected} пиков/день
                 </Text>
               )}
               {exp.impact.estimatedDailySavingsMin > 0 && (
                 <Text style={{ fontSize: 12, color: '#16A34A' }}>
-                  ~{exp.impact.estimatedDailySavingsMin.toFixed(1)} min/day saved
+                  ~{exp.impact.estimatedDailySavingsMin.toFixed(1)} мин/день экономии
                 </Text>
               )}
             </div>
           )}
         </Col>
 
-        {/* Actions */}
+        {/* Действия */}
         <Col style={{ flexShrink: 0 }}>
           <Space size={6}>
             {exp && exp.reasons.length > 0 && (
@@ -155,7 +155,7 @@ export function ExplainCard({ rec, onAccept, onReject, accepting, rejecting }: P
                 style={{ fontSize: 12, color: '#1677ff', padding: '0 6px' }}
                 onClick={() => setExpanded(v => !v)}
               >
-                {expanded ? 'Hide' : `Why? (${exp.reasons.length})`}
+                {expanded ? 'Скрыть' : `Почему? (${exp.reasons.length})`}
               </Button>
             )}
             {isPending && (
@@ -168,7 +168,7 @@ export function ExplainCard({ rec, onAccept, onReject, accepting, rejecting }: P
                   onClick={() => onAccept(rec.id)}
                   style={{ background: '#16A34A', borderColor: '#16A34A' }}
                 >
-                  Accept
+                  Принять
                 </Button>
                 <Button
                   size="small"
@@ -177,7 +177,7 @@ export function ExplainCard({ rec, onAccept, onReject, accepting, rejecting }: P
                   loading={rejecting}
                   onClick={() => onReject(rec.id)}
                 >
-                  Reject
+                  Отклонить
                 </Button>
               </>
             )}
@@ -190,11 +190,11 @@ export function ExplainCard({ rec, onAccept, onReject, accepting, rejecting }: P
           <div style={{ marginBottom: 10 }}>
             <Row gutter={16}>
               <Col span={12}>
-                <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 2 }}>Score before</div>
+                <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 2 }}>Скор до</div>
                 <Text style={{ fontSize: 13 }}>{exp.scoreBefore.toFixed(4)}</Text>
               </Col>
               <Col span={12}>
-                <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 2 }}>Score after</div>
+                <div style={{ fontSize: 11, color: '#8c8c8c', marginBottom: 2 }}>Скор после</div>
                 <Text style={{ fontSize: 13, color: '#16A34A' }}>{exp.scoreAfter.toFixed(4)}</Text>
               </Col>
             </Row>

@@ -15,9 +15,16 @@ const DEFAULT_WEIGHTS: ScoringWeights = { w1: 0.5, w2: 0.35, w3: 0.15 };
 
 type StatusFilter = 'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED';
 
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  ALL:      'Все',
+  PENDING:  'Ожидает',
+  ACCEPTED: 'Принято',
+  REJECTED: 'Отклонено',
+};
+
 export function RecommendationsPage() {
   const [searchParams] = useSearchParams();
-  const [warehouseId, setWarehouseId]   = useState<number | null>(() => {
+  const [warehouseId, setWarehouseId] = useState<number | null>(() => {
     const wid = searchParams.get('wid');
     return wid ? parseInt(wid, 10) : null;
   });
@@ -39,7 +46,7 @@ export function RecommendationsPage() {
       });
       setRecs(res.data);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load recommendations');
+      setError(e instanceof Error ? e.message : 'Не удалось загрузить рекомендации');
     } finally {
       setLoading(false);
     }
@@ -50,14 +57,14 @@ export function RecommendationsPage() {
   }, [warehouseId, statusFilter]);
 
   const generate = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
+    if (!warehouseId) { setError('Введите ID склада'); return; }
     setGenerating(true);
     setError(null);
     try {
       const res = await api.generateRecommendations(warehouseId, DEFAULT_WEIGHTS);
       setRecs(res.data.filter(r => statusFilter === 'ALL' || r.status === statusFilter));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Generation failed');
+      setError(e instanceof Error ? e.message : 'Ошибка генерации');
     } finally {
       setGenerating(false);
     }
@@ -75,7 +82,7 @@ export function RecommendationsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      setError('Export failed');
+      setError('Ошибка экспорта');
     } finally {
       setExporting(false);
     }
@@ -86,7 +93,7 @@ export function RecommendationsPage() {
     try {
       const res = await api.acceptRecommendation(id);
       setRecs(prev => prev.map(r => r.id === id ? res.data : r));
-    } catch { /* ignore */ }
+    } catch { /* игнорируем */ }
     setActingId(null);
   };
 
@@ -95,7 +102,7 @@ export function RecommendationsPage() {
     try {
       const res = await api.rejectRecommendation(id);
       setRecs(prev => prev.map(r => r.id === id ? res.data : r));
-    } catch { /* ignore */ }
+    } catch { /* игнорируем */ }
     setActingId(null);
   };
 
@@ -112,20 +119,20 @@ export function RecommendationsPage() {
 
   return (
     <div style={{ maxWidth: 880, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Recommendations</Title>
+      <Title level={3} style={{ marginBottom: 4 }}>Рекомендации</Title>
       <Paragraph type="secondary" style={{ marginBottom: 24 }}>
-        Each card shows <em>why</em> a slot change is recommended — with velocity, co-pick, and
-        capacity reasons backed by real numbers.
+        Каждая карточка показывает, <em>почему</em> рекомендуется перемещение — с конкретными
+        цифрами по скорости продаж, совместным заказам и вместимости.
       </Paragraph>
 
       <Card style={{ marginBottom: 24 }}>
         <Row gutter={24} align="middle" wrap>
           <Col>
-            <Text style={{ fontSize: 13 }}>Warehouse ID</Text>
+            <Text style={{ fontSize: 13 }}>ID склада</Text>
             <div style={{ marginTop: 4 }}>
               <InputNumber
                 min={1}
-                placeholder="e.g. 1"
+                placeholder="например 1"
                 value={warehouseId ?? undefined}
                 onChange={v => setWarehouseId(v ?? null)}
                 style={{ width: 140 }}
@@ -140,7 +147,7 @@ export function RecommendationsPage() {
                 loading={generating}
                 onClick={generate}
               >
-                Generate Recommendations
+                Сгенерировать рекомендации
               </Button>
               {warehouseId && (
                 <Button
@@ -148,7 +155,7 @@ export function RecommendationsPage() {
                   loading={loading}
                   onClick={() => load(warehouseId, statusFilter)}
                 >
-                  Refresh
+                  Обновить
                 </Button>
               )}
               {warehouseId && recs.length > 0 && (
@@ -157,7 +164,7 @@ export function RecommendationsPage() {
                   loading={exporting}
                   onClick={handleExport}
                 >
-                  Export CSV
+                  Экспорт CSV
                 </Button>
               )}
             </Space>
@@ -180,25 +187,25 @@ export function RecommendationsPage() {
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col span={6}>
             <Card>
-              <Statistic title="Pending" value={pending} valueStyle={{ color: '#1677ff' }} />
+              <Statistic title="Ожидает" value={pending} valueStyle={{ color: '#1677ff' }} />
             </Card>
           </Col>
           <Col span={6}>
             <Card>
-              <Statistic title="Accepted" value={accepted} valueStyle={{ color: '#16A34A' }} />
+              <Statistic title="Принято" value={accepted} valueStyle={{ color: '#16A34A' }} />
             </Card>
           </Col>
           <Col span={6}>
             <Card>
-              <Statistic title="Rejected" value={rejected} valueStyle={{ color: '#DC2626' }} />
+              <Statistic title="Отклонено" value={rejected} valueStyle={{ color: '#DC2626' }} />
             </Card>
           </Col>
           <Col span={6}>
             <Card>
               <Statistic
-                title="Est. Daily Saving"
+                title="Экономия в день"
                 value={topSaving.toFixed(1)}
-                suffix="min"
+                suffix="мин"
                 valueStyle={{ color: '#16A34A' }}
                 prefix={<BulbOutlined />}
               />
@@ -213,10 +220,10 @@ export function RecommendationsPage() {
             value={statusFilter}
             onChange={v => setStatusFilter(v)}
             options={[
-              { label: `All (${recs.length})`,       value: 'ALL' },
-              { label: `Pending (${pending})`,        value: 'PENDING' },
-              { label: `Accepted (${accepted})`,      value: 'ACCEPTED' },
-              { label: `Rejected (${rejected})`,      value: 'REJECTED' },
+              { label: `${STATUS_LABELS.ALL} (${recs.length})`,      value: 'ALL' },
+              { label: `${STATUS_LABELS.PENDING} (${pending})`,       value: 'PENDING' },
+              { label: `${STATUS_LABELS.ACCEPTED} (${accepted})`,     value: 'ACCEPTED' },
+              { label: `${STATUS_LABELS.REJECTED} (${rejected})`,     value: 'REJECTED' },
             ]}
           />
         </div>
@@ -226,7 +233,7 @@ export function RecommendationsPage() {
         <div style={{ textAlign: 'center', padding: 48 }}>
           <Spin size="large" />
           <div style={{ marginTop: 12, color: '#8c8c8c', fontSize: 13 }}>
-            {generating ? 'Running scoring and generating explanations…' : 'Loading…'}
+            {generating ? 'Запускаем скоринг и формируем объяснения…' : 'Загрузка…'}
           </div>
         </div>
       )}
@@ -234,8 +241,10 @@ export function RecommendationsPage() {
       {!loading && !generating && visible.length === 0 && warehouseId && (
         <Card>
           <div style={{ textAlign: 'center', padding: 40, color: '#8c8c8c', fontSize: 14 }}>
-            No {statusFilter !== 'ALL' ? statusFilter.toLowerCase() + ' ' : ''}recommendations.{' '}
-            {statusFilter === 'PENDING' && 'Click "Generate Recommendations" to run scoring.'}
+            {statusFilter !== 'ALL'
+              ? `Нет рекомендаций со статусом «${STATUS_LABELS[statusFilter]}».`
+              : 'Нет рекомендаций.'}{' '}
+            {statusFilter === 'PENDING' && 'Нажмите «Сгенерировать рекомендации» для запуска скоринга.'}
           </div>
         </Card>
       )}
@@ -243,7 +252,7 @@ export function RecommendationsPage() {
       {!loading && !generating && !warehouseId && (
         <Card>
           <div style={{ textAlign: 'center', padding: 40, color: '#8c8c8c', fontSize: 14 }}>
-            Enter a warehouse ID and click "Generate Recommendations".
+            Введите ID склада и нажмите «Сгенерировать рекомендации».
           </div>
         </Card>
       )}

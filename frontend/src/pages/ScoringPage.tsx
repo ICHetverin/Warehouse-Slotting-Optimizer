@@ -26,9 +26,9 @@ function WeightSliders({
     <Row gutter={24}>
       {(
         [
-          { key: 'w1', label: 'Velocity × Distance', color: '#1677ff' },
-          { key: 'w2', label: 'Co-pick Affinity',    color: '#7C3AED' },
-          { key: 'w3', label: 'Weight Fit',           color: '#059669' },
+          { key: 'w1', label: 'Скорость × Расстояние', color: '#1677ff' },
+          { key: 'w2', label: 'Совместные заказы',      color: '#7C3AED' },
+          { key: 'w3', label: 'Нагрузка',               color: '#059669' },
         ] as { key: keyof ScoringWeights; label: string; color: string }[]
       ).map(({ key, label, color }) => (
         <Col span={8} key={key}>
@@ -54,24 +54,24 @@ function WeightSliders({
 
 const COLUMNS: ColumnsType<Assignment> = [
   {
-    title: 'SKU',
+    title: 'Артикул',
     dataIndex: 'skuCode',
     sorter: (a, b) => a.skuCode.localeCompare(b.skuCode),
     width: 120,
   },
   {
-    title: 'From',
+    title: 'Откуда',
     dataIndex: 'fromLabel',
     render: v => v ?? <Text type="secondary">—</Text>,
     width: 100,
   },
   {
-    title: 'To',
+    title: 'Куда',
     dataIndex: 'toLabel',
     width: 100,
   },
   {
-    title: 'Score',
+    title: 'Скор',
     dataIndex: 'score',
     render: v => v.toFixed(3),
     sorter: (a, b) => a.score - b.score,
@@ -79,7 +79,7 @@ const COLUMNS: ColumnsType<Assignment> = [
     align: 'right',
   },
   {
-    title: 'Delta',
+    title: 'Дельта',
     dataIndex: 'scoreDelta',
     render: v => (
       <Tag color={v > 0 ? 'success' : v < 0 ? 'error' : 'default'}>
@@ -101,14 +101,14 @@ export function ScoringPage() {
   const [error, setError]             = useState<string | null>(null);
 
   const run = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
+    if (!warehouseId) { setError('Введите ID склада'); return; }
     setLoading(true);
     setError(null);
     try {
       const res = await api.runScoring(warehouseId, weights);
       setResult(res.data);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Scoring failed');
+      setError(e instanceof Error ? e.message : 'Ошибка скоринга');
     } finally {
       setLoading(false);
     }
@@ -116,21 +116,21 @@ export function ScoringPage() {
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Scoring Engine</Title>
+      <Title level={3} style={{ marginBottom: 4 }}>Скоринговый движок</Title>
       <Paragraph type="secondary" style={{ marginBottom: 32 }}>
-        Run greedy slot assignment and tune component weights. Formula:{' '}
-        <Text code>score = w1·velocity·distance + w2·copick + w3·fit</Text>
+        Жадное назначение ячеек с настраиваемыми весами компонентов. Формула:{' '}
+        <Text code>score = w1·скорость·расстояние + w2·совм_заказы + w3·нагрузка</Text>
       </Paragraph>
 
-      <Card title="Configuration" style={{ marginBottom: 24 }}>
+      <Card title="Конфигурация" style={{ marginBottom: 24 }}>
         <Form layout="vertical">
           <Row gutter={24} align="bottom">
             <Col span={8}>
-              <Form.Item label="Warehouse ID" style={{ marginBottom: 0 }}>
+              <Form.Item label="ID склада" style={{ marginBottom: 0 }}>
                 <InputNumber
                   style={{ width: '100%' }}
                   min={1}
-                  placeholder="e.g. 1"
+                  placeholder="например 1"
                   value={warehouseId ?? undefined}
                   onChange={v => setWarehouseId(v ?? null)}
                 />
@@ -138,7 +138,7 @@ export function ScoringPage() {
             </Col>
           </Row>
           <div style={{ marginTop: 24, marginBottom: 8 }}>
-            <Text strong style={{ fontSize: 13 }}>Component Weights</Text>
+            <Text strong style={{ fontSize: 13 }}>Веса компонентов</Text>
           </div>
           <WeightSliders weights={weights} onChange={setWeights} />
           <div style={{ marginTop: 24 }}>
@@ -149,7 +149,7 @@ export function ScoringPage() {
               onClick={run}
               size="middle"
             >
-              Run Scoring
+              Запустить скоринг
             </Button>
           </div>
         </Form>
@@ -170,7 +170,7 @@ export function ScoringPage() {
         <div style={{ textAlign: 'center', padding: 48 }}>
           <Spin size="large" />
           <div style={{ marginTop: 12, color: '#8c8c8c', fontSize: 13 }}>
-            Running greedy assignment…
+            Выполняем жадное назначение…
           </div>
         </div>
       )}
@@ -180,13 +180,13 @@ export function ScoringPage() {
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={6}>
               <Card>
-                <Statistic title="Total Assignments" value={result.totalAssignments} />
+                <Statistic title="Всего назначений" value={result.totalAssignments} />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Improved"
+                  title="Улучшено"
                   value={result.improved}
                   suffix={`/ ${result.totalAssignments}`}
                   valueStyle={{ color: '#16A34A' }}
@@ -197,7 +197,7 @@ export function ScoringPage() {
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Improvement Rate"
+                  title="Доля улучшений"
                   value={result.totalAssignments > 0
                     ? Math.round((result.improved / result.totalAssignments) * 100)
                     : 0}
@@ -208,7 +208,7 @@ export function ScoringPage() {
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Weights (w1/w2/w3)"
+                  title="Веса (w1/w2/w3)"
                   value={`${result.weightsUsed.w1}/${result.weightsUsed.w2}/${result.weightsUsed.w3}`}
                   valueStyle={{ fontSize: 18 }}
                 />
@@ -216,7 +216,7 @@ export function ScoringPage() {
             </Col>
           </Row>
 
-          <Card title={`Assignments (${result.assignments.length})`}>
+          <Card title={`Назначения (${result.assignments.length})`}>
             <Table<Assignment>
               dataSource={result.assignments}
               columns={COLUMNS}
@@ -228,11 +228,8 @@ export function ScoringPage() {
           </Card>
 
           <Space style={{ marginTop: 16 }}>
-            <Button
-              type="primary"
-              href={`/recommendations?warehouseId=${warehouseId}`}
-            >
-              View Recommendations
+            <Button type="primary" href={`/recommendations?warehouseId=${warehouseId}`}>
+              Смотреть рекомендации
             </Button>
           </Space>
         </>

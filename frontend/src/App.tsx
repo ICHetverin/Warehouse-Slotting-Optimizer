@@ -23,13 +23,13 @@ import { appTheme }            from './theme';
 const { Sider, Content } = Layout;
 
 const NAV_ITEMS: MenuProps['items'] = [
-  { key: '/upload',          label: 'Import Data',     icon: <UploadOutlined /> },
-  { key: '/map',             label: 'Warehouse Map',   icon: <AppstoreOutlined /> },
-  { key: '/recommendations', label: 'Recommendations', icon: <BulbOutlined /> },
-  { key: '/scoring',         label: 'Scoring',         icon: <BarChartOutlined /> },
-  { key: '/routes',          label: 'Routes',          icon: <NodeIndexOutlined /> },
-  { key: '/analytics',       label: 'Analytics',       icon: <LineChartOutlined /> },
-  { key: '/settings',        label: 'Settings',        icon: <SettingOutlined /> },
+  { key: '/upload',          label: 'Загрузка данных', icon: <UploadOutlined /> },
+  { key: '/map',             label: 'Карта склада',    icon: <AppstoreOutlined /> },
+  { key: '/recommendations', label: 'Рекомендации',   icon: <BulbOutlined /> },
+  { key: '/scoring',         label: 'Скоринг',         icon: <BarChartOutlined /> },
+  { key: '/routes',          label: 'Маршруты',        icon: <NodeIndexOutlined /> },
+  { key: '/analytics',       label: 'Аналитика',       icon: <LineChartOutlined /> },
+  { key: '/settings',        label: 'Настройки',       icon: <SettingOutlined /> },
 ];
 
 const NAV_KEYS = NAV_ITEMS!.map(item => (item as { key: string }).key);
@@ -72,7 +72,7 @@ function AppShell() {
               textTransform: 'uppercase',
             }}
           >
-            Warehouse Optimizer
+            Оптимизатор склада
           </Typography.Text>
         </div>
         <Menu
