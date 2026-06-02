@@ -2,6 +2,7 @@ package com.warehouse.optimizer.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.opencsv.CSVWriter;
 import com.warehouse.optimizer.dto.*;
 import com.warehouse.optimizer.engine.ExplainerEngine;
 import com.warehouse.optimizer.engine.ScoringContext;
@@ -13,6 +14,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+
+import java.io.IOException;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -123,6 +128,37 @@ public class RecommendationService {
     @Transactional
     public RecommendationResponse reject(Long id) {
         return updateStatus(id, RecommendationStatus.REJECTED);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportToCsv(Long warehouseId) {
+        requireWarehouse(warehouseId);
+
+        Sort sort = Sort.by(Sort.Direction.DESC, "scoreDelta");
+        List<Recommendation> recs = recommendationRepo
+                .findByWarehouseId(warehouseId, PageRequest.of(0, 10_000, sort))
+                .getContent();
+
+        try (StringWriter sw = new StringWriter(); CSVWriter csv = new CSVWriter(sw)) {
+            csv.writeNext(new String[]{
+                "id", "sku_code", "from_slot", "to_slot",
+                "score_delta", "status", "created_at"
+            });
+            for (Recommendation r : recs) {
+                csv.writeNext(new String[]{
+                    String.valueOf(r.getId()),
+                    r.getSku().getCode(),
+                    r.getFromSlot() != null ? r.getFromSlot().getLabel() : "",
+                    r.getToSlot()   != null ? r.getToSlot().getLabel()   : "",
+                    r.getScoreDelta().toPlainString(),
+                    r.getStatus().name(),
+                    r.getCreatedAt().toString()
+                });
+            }
+            return sw.toString().getBytes(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate CSV export", e);
+        }
     }
 
     @Transactional(readOnly = true)

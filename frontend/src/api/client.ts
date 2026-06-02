@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type {
   ApiResponse,
+  DemoSeedResponse,
   Warehouse,
   ScoringRunResponse,
   ScoringWeights,
@@ -18,6 +19,12 @@ const http = axios.create({
 });
 
 export const api = {
+  // ── Demo ──────────────────────────────────────────────────────────────────
+
+  seedDemo(): Promise<ApiResponse<DemoSeedResponse>> {
+    return http.post<ApiResponse<DemoSeedResponse>>('/demo/seed').then(r => r.data);
+  },
+
   // ── Warehouses ─────────────────────────────────────────────────────────────
 
   listWarehouses(): Promise<ApiResponse<Warehouse[]>> {
@@ -142,5 +149,11 @@ export const api = {
     return http
       .patch<ApiResponse<RecommendationResponse>>(`/recommendations/${id}/reject`)
       .then(r => r.data);
+  },
+
+  exportRecommendations(warehouseId: number): Promise<Blob> {
+    return http
+      .get(`/recommendations/${warehouseId}/export`, { responseType: 'blob' })
+      .then(r => r.data as Blob);
   },
 };

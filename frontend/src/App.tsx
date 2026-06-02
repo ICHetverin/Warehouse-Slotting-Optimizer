@@ -8,12 +8,16 @@ import {
   BarChartOutlined,
   NodeIndexOutlined,
   SettingOutlined,
+  LineChartOutlined,
 } from '@ant-design/icons';
 import { UploadPage }          from './pages/UploadPage';
 import { ScoringPage }         from './pages/ScoringPage';
 import { WarehouseMapPage }    from './pages/WarehouseMapPage';
 import { RoutesPage }          from './pages/RoutesPage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
+import { AnalyticsPage }       from './pages/AnalyticsPage';
+import { SettingsPage }        from './pages/SettingsPage';
+import { LandingPage }         from './pages/LandingPage';
 import { appTheme }            from './theme';
 
 const { Sider, Content } = Layout;
@@ -24,6 +28,7 @@ const NAV_ITEMS: MenuProps['items'] = [
   { key: '/recommendations', label: 'Recommendations', icon: <BulbOutlined /> },
   { key: '/scoring',         label: 'Scoring',         icon: <BarChartOutlined /> },
   { key: '/routes',          label: 'Routes',          icon: <NodeIndexOutlined /> },
+  { key: '/analytics',       label: 'Analytics',       icon: <LineChartOutlined /> },
   { key: '/settings',        label: 'Settings',        icon: <SettingOutlined /> },
 ];
 
@@ -54,7 +59,9 @@ function AppShell() {
           style={{
             padding: '20px 16px 14px',
             borderBottom: '1px solid #f0f0f0',
+            cursor: 'pointer',
           }}
+          onClick={() => navigate('/')}
         >
           <Typography.Text
             style={{
@@ -78,20 +85,14 @@ function AppShell() {
       </Sider>
       <Content style={{ background: '#f5f5f5', overflow: 'auto' }}>
         <Routes>
-          <Route path="/"                element={<UploadPage />} />
           <Route path="/upload"          element={<UploadPage />} />
           <Route path="/map"             element={<WarehouseMapPage />} />
           <Route path="/scoring"         element={<ScoringPage />} />
           <Route path="/routes"          element={<RoutesPage />} />
           <Route path="/recommendations" element={<RecommendationsPage />} />
-          <Route
-            path="*"
-            element={
-              <div style={{ padding: 40, color: '#8c8c8c', fontSize: 14 }}>
-                Coming soon…
-              </div>
-            }
-          />
+          <Route path="/analytics"       element={<AnalyticsPage />} />
+          <Route path="/settings"        element={<SettingsPage />} />
+          <Route path="*"                element={<UploadPage />} />
         </Routes>
       </Content>
     </Layout>
@@ -102,7 +103,10 @@ export function App() {
   return (
     <ConfigProvider theme={appTheme}>
       <BrowserRouter>
-        <AppShell />
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/*" element={<AppShell />} />
+        </Routes>
       </BrowserRouter>
     </ConfigProvider>
   );
