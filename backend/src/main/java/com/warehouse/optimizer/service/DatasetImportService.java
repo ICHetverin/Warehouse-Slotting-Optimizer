@@ -262,7 +262,8 @@ public class DatasetImportService {
                 if (orderNo.isEmpty()) continue;
 
                 byOrder.computeIfAbsent(orderNo, k -> new ArrayList<>()).add(line);
-                orderTs.computeIfAbsent(orderNo, k -> parseDateTime(line[6].trim()));
+                final String dateCell = line[6].trim();
+                orderTs.computeIfAbsent(orderNo, k -> parseDateTime(dateCell));
             }
         } catch (IOException | CsvValidationException e) {
             throw new ScoringException("Ошибка разбора Customer_Order.csv: " + e.getMessage(), e);
