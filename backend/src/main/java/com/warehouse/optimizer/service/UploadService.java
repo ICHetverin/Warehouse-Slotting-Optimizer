@@ -70,7 +70,7 @@ public class UploadService {
                 }
 
                 Sku sku = skuRepo.findByWarehouseIdAndCode(warehouseId, skuCode)
-                        .orElseThrow(() -> new ScoringException("SKU not found: " + skuCode));
+                        .orElseThrow(() -> new ScoringException("Артикул не найден: " + skuCode));
 
                 Order finalOrder = currentOrder;
                 lineBuffer.add(OrderLine.builder()
@@ -87,7 +87,7 @@ public class UploadService {
             }
 
         } catch (IOException | CsvValidationException e) {
-            throw new ScoringException("Failed to parse orders CSV: " + e.getMessage(), e);
+            throw new ScoringException("Ошибка разбора CSV заказов: " + e.getMessage(), e);
         }
 
         log.info("Imported {} orders for warehouse={}", imported, warehouseId);
@@ -122,7 +122,7 @@ public class UploadService {
             }
 
         } catch (IOException | CsvValidationException e) {
-            throw new ScoringException("Failed to parse layout CSV: " + e.getMessage(), e);
+            throw new ScoringException("Ошибка разбора CSV планировки: " + e.getMessage(), e);
         }
 
         slotRepo.saveAll(slots);
@@ -157,7 +157,7 @@ public class UploadService {
             }
 
         } catch (IOException | CsvValidationException e) {
-            throw new ScoringException("Failed to parse SKUs CSV: " + e.getMessage(), e);
+            throw new ScoringException("Ошибка разбора CSV артикулов: " + e.getMessage(), e);
         }
 
         skuRepo.saveAll(skus);
@@ -172,12 +172,12 @@ public class UploadService {
     }
 
     private void validateHeader(String[] actual, String[] expected) {
-        if (actual == null) throw new ScoringException("CSV file is empty");
+        if (actual == null) throw new ScoringException("CSV файл пуст");
         for (int i = 0; i < expected.length; i++) {
             if (i >= actual.length || !actual[i].trim().equalsIgnoreCase(expected[i])) {
                 throw new ScoringException(
-                        "Invalid CSV header at column %d: expected '%s', got '%s'"
-                                .formatted(i, expected[i], i < actual.length ? actual[i] : "<missing>"));
+                        "Неверный заголовок CSV в колонке %d: ожидается '%s', получено '%s'"
+                                .formatted(i, expected[i], i < actual.length ? actual[i] : "<отсутствует>"));
             }
         }
     }

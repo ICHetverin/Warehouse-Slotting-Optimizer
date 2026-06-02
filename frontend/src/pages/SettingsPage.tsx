@@ -20,20 +20,20 @@ const DEFAULTS: AppSettings = {
 const WEIGHT_CONFIG = [
   {
     key: 'w1' as const,
-    label: 'Velocity × Distance',
-    desc: 'Prioritises fast-moving SKUs near the dock',
+    label: 'Скорость × Расстояние',
+    desc: 'Приоритизирует быстрые товары ближе к докингу',
     color: '#1677ff',
   },
   {
     key: 'w2' as const,
-    label: 'Co-pick Affinity',
-    desc: 'Groups frequently co-ordered SKUs close together',
+    label: 'Совместные заказы',
+    desc: 'Располагает часто совместно заказываемые артикулы рядом',
     color: '#7C3AED',
   },
   {
     key: 'w3' as const,
-    label: 'Weight Fit',
-    desc: 'Penalises SKUs placed in slots with insufficient capacity',
+    label: 'Нагрузка',
+    desc: 'Штрафует за размещение в ячейках с недостаточной грузоподъёмностью',
     color: '#059669',
   },
 ];
@@ -58,26 +58,26 @@ export function SettingsPage() {
 
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Settings</Title>
+      <Title level={3} style={{ marginBottom: 4 }}>Настройки</Title>
       <Paragraph type="secondary" style={{ marginBottom: 32 }}>
-        Configure default scoring weights and analysis parameters.
-        Values are saved in your browser and applied as defaults across all pages.
+        Настройте веса скоринга и параметры анализа. Значения сохраняются в браузере
+        и применяются по умолчанию на всех страницах.
       </Paragraph>
 
-      <Card title="Scoring Weights" style={{ marginBottom: 24 }}>
+      <Card title="Веса скоринга" style={{ marginBottom: 24 }}>
         <Paragraph style={{ marginBottom: 20, fontSize: 13, color: '#595959' }}>
-          Formula:{' '}
+          Формула:{' '}
           <Text code style={{ fontSize: 12 }}>
-            score = w1·velocity·distance + w2·copick + w3·fit
+            score = w1·скорость·расстояние + w2·совм_заказы + w3·нагрузка
           </Text>
           <br />
-          Weight sum:{' '}
+          Сумма весов:{' '}
           <Text strong style={{ color: sumOk ? '#16A34A' : '#DC2626' }}>
             {weightSum.toFixed(2)}
           </Text>
           {!sumOk && (
             <Text style={{ color: '#D97706', fontSize: 12, marginLeft: 8 }}>
-              (ideally 1.00)
+              (в идеале 1.00)
             </Text>
           )}
         </Paragraph>
@@ -111,20 +111,20 @@ export function SettingsPage() {
         ))}
       </Card>
 
-      <Card title="Analysis Parameters" style={{ marginBottom: 24 }}>
+      <Card title="Параметры анализа" style={{ marginBottom: 24 }}>
         <Form layout="vertical">
           <Row gutter={24}>
             <Col span={12}>
               <Form.Item
-                label="Velocity window"
-                help="Days of order history used for velocity scoring"
+                label="Период для скорости продаж"
+                help="Количество дней истории заказов для расчёта скорости"
                 style={{ marginBottom: 0 }}
               >
                 <InputNumber
                   style={{ width: '100%' }}
                   min={1}
                   max={365}
-                  addonAfter="days"
+                  addonAfter="дн."
                   value={settings.velocityDays}
                   onChange={v => set('velocityDays', v ?? 90)}
                 />
@@ -132,14 +132,14 @@ export function SettingsPage() {
             </Col>
             <Col span={12}>
               <Form.Item
-                label="Default cart capacity"
-                help="Used in route optimisation — 0 means unlimited"
+                label="Грузоподъёмность тележки"
+                help="Используется при оптимизации маршрута — 0 = без ограничений"
                 style={{ marginBottom: 0 }}
               >
                 <InputNumber
                   style={{ width: '100%' }}
                   min={0}
-                  addonAfter="kg"
+                  addonAfter="кг"
                   value={settings.cartCapacityKg}
                   onChange={v => set('cartCapacityKg', v ?? 0)}
                 />
@@ -152,7 +152,7 @@ export function SettingsPage() {
       {saved && (
         <Alert
           type="success"
-          message="Settings saved to browser storage."
+          message="Настройки сохранены в браузере."
           showIcon
           style={{ marginBottom: 16 }}
         />
@@ -160,10 +160,10 @@ export function SettingsPage() {
 
       <Space>
         <Button type="primary" icon={<SaveOutlined />} onClick={handleSave}>
-          Save Settings
+          Сохранить
         </Button>
         <Button icon={<ReloadOutlined />} onClick={handleReset}>
-          Reset to Defaults
+          Сбросить
         </Button>
       </Space>
     </div>

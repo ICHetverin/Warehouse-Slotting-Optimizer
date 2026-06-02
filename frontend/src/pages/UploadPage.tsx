@@ -13,8 +13,13 @@ const { Title, Text, Paragraph } = Typography;
 
 type StepKey = 'warehouse' | 'layout' | 'skus' | 'orders' | 'done';
 
-const STEP_KEYS: StepKey[] = ['warehouse', 'layout', 'skus', 'orders', 'done'];
-const STEP_TITLES = ['Warehouse', 'Layout', 'SKUs', 'Orders', 'Done'];
+const STEP_KEYS:   StepKey[] = ['warehouse', 'layout', 'skus', 'orders', 'done'];
+const STEP_TITLES             = ['Склад', 'Планировка', 'Артикулы', 'Заказы', 'Готово'];
+
+interface StepResult {
+  label: string;
+  count: number;
+}
 
 function DemoBanner() {
   const navigate = useNavigate();
@@ -24,10 +29,10 @@ function DemoBanner() {
     setLoading(true);
     try {
       const res = await api.seedDemo();
-      message.success(`Demo ready — Warehouse ID: ${res.data.warehouseId}`);
+      message.success(`Демо загружено — ID склада: ${res.data.warehouseId}`);
       navigate(`/recommendations?wid=${res.data.warehouseId}`);
     } catch {
-      message.error('Could not load demo — is the backend running?');
+      message.error('Не удалось загрузить демо — запущен ли бэкенд?');
     } finally {
       setLoading(false);
     }
@@ -35,20 +40,16 @@ function DemoBanner() {
 
   return (
     <Card
-      style={{
-        marginBottom: 24,
-        background: '#EFF6FF',
-        border: '1px solid #BFDBFE',
-      }}
+      style={{ marginBottom: 24, background: '#EFF6FF', border: '1px solid #BFDBFE' }}
       styles={{ body: { padding: '16px 20px' } }}
     >
       <Space align="start">
         <ThunderboltOutlined style={{ color: '#1677ff', fontSize: 18, marginTop: 2 }} />
         <div>
-          <Text strong style={{ fontSize: 14 }}>Skip the upload — try the demo</Text>
+          <Text strong style={{ fontSize: 14 }}>Пропустить загрузку — попробовать демо</Text>
           <div>
             <Text style={{ fontSize: 13, color: '#595959' }}>
-              Loads 1 000 SKUs, 500 slots, and 10 000 orders instantly.
+              1&thinsp;000 артикулов, 500 ячеек и 10&thinsp;000 заказов — мгновенно.
             </Text>
           </div>
           <Button
@@ -57,17 +58,12 @@ function DemoBanner() {
             onClick={handleDemo}
             style={{ padding: 0, height: 'auto', marginTop: 6, fontSize: 13 }}
           >
-            Load demo data →
+            Загрузить демо-данные →
           </Button>
         </div>
       </Space>
     </Card>
   );
-}
-
-interface StepResult {
-  label: string;
-  count: number;
 }
 
 export function UploadPage() {
@@ -94,7 +90,7 @@ export function UploadPage() {
 
   const handleWarehouse = async () => {
     if (selectedWh) { setStep('layout'); return; }
-    if (!newWhName.trim()) { setError('Enter a warehouse name'); return; }
+    if (!newWhName.trim()) { setError('Введите название склада'); return; }
     setLoading(true);
     try {
       const res = await api.createWarehouse({
@@ -104,7 +100,7 @@ export function UploadPage() {
       setSelectedWh(res.data.id);
       setWarehouses(prev => [...prev, res.data]);
       setStep('layout');
-    } catch { handleError('Failed to create warehouse'); }
+    } catch { handleError('Не удалось создать склад'); }
   };
 
   const upload = async (
@@ -120,21 +116,21 @@ export function UploadPage() {
       handleOk(label, res.data.imported);
       setStep(next);
     } catch (e: unknown) {
-      handleError(e instanceof Error ? e.message : 'Upload failed');
+      handleError(e instanceof Error ? e.message : 'Ошибка загрузки');
     }
   };
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Import Data</Title>
+      <Title level={3} style={{ marginBottom: 4 }}>Загрузка данных</Title>
       <Paragraph type="secondary" style={{ marginBottom: 24 }}>
-        Upload your warehouse layout, SKU catalog, and order history to start scoring.
+        Загрузите планировку склада, каталог артикулов и историю заказов для начала скоринга.
       </Paragraph>
 
       <DemoBanner />
 
       <Divider style={{ marginBottom: 24 }}>
-        <Text style={{ fontSize: 12, color: '#8c8c8c' }}>or upload your own data</Text>
+        <Text style={{ fontSize: 12, color: '#8c8c8c' }}>или загрузите свои данные</Text>
       </Divider>
 
       <Steps
@@ -154,7 +150,7 @@ export function UploadPage() {
             <Space key={i} size={8}>
               <CheckCircleFilled style={{ color: '#16A34A' }} />
               <Text style={{ fontSize: 13 }}>
-                {r.label}: <Text strong>{r.count.toLocaleString()}</Text> records imported
+                {r.label}: <Text strong>{r.count.toLocaleString('ru-RU')}</Text> записей импортировано
               </Text>
             </Space>
           ))}
@@ -173,12 +169,12 @@ export function UploadPage() {
       )}
 
       {step === 'warehouse' && (
-        <Card title="1. Select or create warehouse">
+        <Card title="1. Выбрать или создать склад">
           <Form layout="vertical">
             {warehouses.length > 0 && (
-              <Form.Item label="Existing warehouses">
+              <Form.Item label="Существующие склады">
                 <Select
-                  placeholder="— create new —"
+                  placeholder="— создать новый —"
                   value={selectedWh ?? undefined}
                   onChange={(v: number | undefined) => setSelectedWh(v ?? null)}
                   allowClear
@@ -187,9 +183,9 @@ export function UploadPage() {
               </Form.Item>
             )}
             {!selectedWh && (
-              <Form.Item label="New warehouse name">
+              <Form.Item label="Название нового склада">
                 <Input
-                  placeholder="e.g. Main Warehouse — Kiev"
+                  placeholder="например Главный склад — Киев"
                   value={newWhName}
                   onChange={e => setNewWhName(e.target.value)}
                   onPressEnter={handleWarehouse}
@@ -197,62 +193,61 @@ export function UploadPage() {
               </Form.Item>
             )}
             <Button type="primary" block loading={loading} onClick={handleWarehouse}>
-              {selectedWh ? 'Continue' : 'Create & continue'}
+              {selectedWh ? 'Продолжить' : 'Создать и продолжить'}
             </Button>
           </Form>
         </Card>
       )}
 
       {step === 'layout' && (
-        <Card title="2. Upload warehouse layout">
+        <Card title="2. Загрузить планировку склада">
           <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-            CSV format: <Text code>slot_label, row, col, level, zone, capacity_kg</Text>
+            Формат CSV: <Text code>slot_label, row, col, level, zone, capacity_kg</Text>
           </Paragraph>
           <DropZone
-            label="Drop layout.csv here"
+            label="Перетащите layout.csv сюда"
             hint="slot_label, row, col, level, zone, capacity_kg"
             disabled={loading}
-            onFile={f => upload(f, api.uploadLayout.bind(api), 'Layout', 'skus')}
+            onFile={f => upload(f, api.uploadLayout.bind(api), 'Планировка', 'skus')}
           />
         </Card>
       )}
 
       {step === 'skus' && (
-        <Card title="3. Upload SKU catalog">
+        <Card title="3. Загрузить каталог артикулов">
           <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-            CSV format: <Text code>code, name, weight_kg, volume_m3, category</Text>
+            Формат CSV: <Text code>code, name, weight_kg, volume_m3, category</Text>
           </Paragraph>
           <DropZone
-            label="Drop skus.csv here"
+            label="Перетащите skus.csv сюда"
             hint="code, name, weight_kg, volume_m3, category"
             disabled={loading}
-            onFile={f => upload(f, api.uploadSkus.bind(api), 'SKUs', 'orders')}
+            onFile={f => upload(f, api.uploadSkus.bind(api), 'Артикулы', 'orders')}
           />
         </Card>
       )}
 
       {step === 'orders' && (
-        <Card title="4. Upload order history">
+        <Card title="4. Загрузить историю заказов">
           <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-            CSV format: <Text code>order_id, sku_code, quantity, timestamp</Text>
+            Формат CSV: <Text code>order_id, sku_code, quantity, timestamp</Text>
           </Paragraph>
           <DropZone
-            label="Drop orders.csv here"
+            label="Перетащите orders.csv сюда"
             hint="order_id, sku_code, quantity, timestamp"
             disabled={loading}
-            onFile={f => upload(f, api.uploadOrders.bind(api), 'Orders', 'done')}
+            onFile={f => upload(f, api.uploadOrders.bind(api), 'Заказы', 'done')}
           />
         </Card>
       )}
 
       {step === 'done' && (
-        <Card title="All done!">
+        <Card title="Всё готово!">
           <Paragraph style={{ marginBottom: 16 }}>
-            Your data is loaded. Go to <Text strong>Scoring</Text> to generate placement
-            recommendations.
+            Данные загружены. Перейдите в <Text strong>Скоринг</Text> для получения рекомендаций по размещению.
           </Paragraph>
           <Button type="primary" block href="/scoring">
-            Run Scoring
+            Запустить скоринг
           </Button>
         </Card>
       )}

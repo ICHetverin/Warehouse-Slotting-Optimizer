@@ -69,14 +69,14 @@ export function AnalyticsPage() {
   const [error, setError]             = useState<string | null>(null);
 
   const load = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
+    if (!warehouseId) { setError('Введите ID склада'); return; }
     setLoading(true);
     setError(null);
     try {
       const res = await api.getCopickMatrix(warehouseId);
       setMatrix(res.data);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load analytics');
+      setError(e instanceof Error ? e.message : 'Не удалось загрузить аналитику');
     } finally {
       setLoading(false);
     }
@@ -91,20 +91,20 @@ export function AnalyticsPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Analytics</Title>
+      <Title level={3} style={{ marginBottom: 4 }}>Аналитика</Title>
       <Paragraph type="secondary" style={{ marginBottom: 24 }}>
-        Co-pick affinity heatmap — shows which SKUs are frequently ordered together.
-        Darker cells = stronger co-pick signal.
+        Тепловая карта совместных заказов — показывает, какие артикулы чаще всего заказываются
+        вместе. Более тёмные ячейки — более сильная связь.
       </Paragraph>
 
       <Card style={{ marginBottom: 24 }}>
         <Row gutter={16} align="bottom" wrap={false}>
           <Col>
-            <Text style={{ fontSize: 13 }}>Warehouse ID</Text>
+            <Text style={{ fontSize: 13 }}>ID склада</Text>
             <div style={{ marginTop: 4 }}>
               <InputNumber
                 min={1}
-                placeholder="e.g. 1"
+                placeholder="например 1"
                 value={warehouseId ?? undefined}
                 onChange={v => setWarehouseId(v ?? null)}
                 style={{ width: 140 }}
@@ -118,7 +118,7 @@ export function AnalyticsPage() {
               loading={loading}
               onClick={load}
             >
-              Load Analytics
+              Загрузить аналитику
             </Button>
           </Col>
         </Row>
@@ -139,7 +139,7 @@ export function AnalyticsPage() {
         <div style={{ textAlign: 'center', padding: 60 }}>
           <Spin size="large" />
           <div style={{ marginTop: 12, color: '#8c8c8c', fontSize: 13 }}>
-            Computing co-pick matrix…
+            Вычисляем матрицу совместных заказов…
           </div>
         </div>
       )}
@@ -149,23 +149,23 @@ export function AnalyticsPage() {
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={6}>
               <Card>
-                <Statistic title="SKUs in matrix" value={matrix.skuCount} />
+                <Statistic title="Артикулов в матрице" value={matrix.skuCount} />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic title="Co-pick pairs" value={matrix.pairCount} />
+                <Statistic title="Пар совместных заказов" value={matrix.pairCount} />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic title="Analysis window" value={matrix.days} suffix="days" />
+                <Statistic title="Период анализа" value={matrix.days} suffix="дн." />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Shown in heatmap"
+                  title="Показано на карте"
                   value={topSkus.length}
                   suffix={`/ ${matrix.skuCount}`}
                 />
@@ -176,31 +176,31 @@ export function AnalyticsPage() {
           <Row gutter={24} wrap={false} style={{ alignItems: 'flex-start' }}>
             <Col flex="auto" style={{ minWidth: 0 }}>
               <Card
-                title="Co-pick Heatmap"
+                title="Тепловая карта совместных заказов"
                 styles={{ body: { overflowX: 'auto', padding: 16 } }}
               >
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
                   <Text style={{ fontSize: 12, color: '#8c8c8c' }}>
-                    Top {topSkus.length} SKUs by co-pick activity
+                    Топ {topSkus.length} артикулов по совместным заказам
                   </Text>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginLeft: 'auto' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#6b7280' }}>
                       <span style={{ width: 14, height: 14, background: '#f5f3ff', border: '1px solid #e9d5ff', display: 'inline-block', borderRadius: 2 }} />
-                      Low
+                      Низкая
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#6b7280' }}>
                       <span style={{ width: 14, height: 14, background: '#c4b5fd', display: 'inline-block', borderRadius: 2 }} />
-                      Mid
+                      Средняя
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#6b7280' }}>
                       <span style={{ width: 14, height: 14, background: '#4c1d95', display: 'inline-block', borderRadius: 2 }} />
-                      High
+                      Высокая
                     </span>
                   </div>
                 </div>
 
                 {topSkus.length === 0 ? (
-                  <Text type="secondary">No co-pick data found for this warehouse.</Text>
+                  <Text type="secondary">Нет данных о совместных заказах для этого склада.</Text>
                 ) : (
                   <svg width={svgW} height={svgH} style={{ display: 'block', minWidth: svgW }}>
                     {topSkus.map((code, ci) => (
@@ -250,7 +250,7 @@ export function AnalyticsPage() {
                             >
                               <title>
                                 {rowCode} × {colCode}:{' '}
-                                {isDiag ? 'same SKU' : `${(val * 100).toFixed(1)}% co-pick`}
+                                {isDiag ? 'тот же артикул' : `${(val * 100).toFixed(1)}% совм. заказов`}
                               </title>
                             </rect>
                           );
@@ -263,7 +263,7 @@ export function AnalyticsPage() {
             </Col>
 
             <Col style={{ width: 300, flexShrink: 0 }}>
-              <Card title="Top Co-pick Pairs" size="small">
+              <Card title="Топ пар по совместным заказам" size="small">
                 <Table<TopPair>
                   dataSource={topPairs}
                   rowKey={r => `${r.sku1}-${r.sku2}`}
@@ -271,7 +271,7 @@ export function AnalyticsPage() {
                   pagination={false}
                   columns={[
                     {
-                      title: 'Pair',
+                      title: 'Пара',
                       render: (_, r) => (
                         <Text style={{ fontSize: 11 }}>{r.sku1} + {r.sku2}</Text>
                       ),
@@ -299,7 +299,7 @@ export function AnalyticsPage() {
       {!matrix && !loading && !error && (
         <Card>
           <div style={{ textAlign: 'center', padding: 40, color: '#8c8c8c', fontSize: 14 }}>
-            Enter a warehouse ID and click "Load Analytics" to view the co-pick heatmap.
+            Введите ID склада и нажмите «Загрузить аналитику» для просмотра тепловой карты.
           </div>
         </Card>
       )}
