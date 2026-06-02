@@ -21,6 +21,21 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.NOT_FOUND, "NOT_FOUND", ex.getMessage());
     }
 
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(ForbiddenException ex) {
+        return error(HttpStatus.FORBIDDEN, "FORBIDDEN", ex.getMessage());
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedException ex) {
+        return error(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", ex.getMessage());
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(ConflictException ex) {
+        return error(HttpStatus.CONFLICT, "CONFLICT", ex.getMessage());
+    }
+
     @ExceptionHandler(ScoringException.class)
     public ResponseEntity<Map<String, Object>> handleScoring(ScoringException ex) {
         log.warn("Scoring error: {}", ex.getMessage());

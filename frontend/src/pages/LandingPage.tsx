@@ -15,6 +15,7 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import { api } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -62,13 +63,16 @@ const HOW_IT_WORKS = [
 
 export function LandingPage() {
   const navigate = useNavigate();
+  const { loginWithToken } = useAuth();
   const [seeding, setSeeding] = useState(false);
 
   const tryDemo = async () => {
     setSeeding(true);
     try {
       const res = await api.seedDemo();
-      message.success(`Демо-склад загружен (ID: ${res.data.warehouseId}) — используйте его на любой странице`);
+      // Demo issues a short-lived GUEST session so the sandbox works without sign-up.
+      loginWithToken(res.data.token, { userId: null, email: 'demo@guest', role: 'GUEST' });
+      message.success('Демо-склад загружен — вы вошли в демо-режиме');
       navigate(`/recommendations?wid=${res.data.warehouseId}`);
     } catch {
       message.error('Не удалось загрузить демо-данные — запущен ли бэкенд?');
@@ -90,7 +94,7 @@ export function LandingPage() {
             <Text strong style={{ fontSize: 15 }}>Оптимизатор склада</Text>
           </Space>
           <Space>
-            <Button onClick={() => navigate('/upload')}>Начать</Button>
+            <Button onClick={() => navigate('/register')}>Начать</Button>
             <Button type="primary" loading={seeding} onClick={tryDemo}>
               Попробовать демо
             </Button>
@@ -123,7 +127,7 @@ export function LandingPage() {
               type="primary"
               size="large"
               icon={<ArrowRightOutlined />}
-              onClick={() => navigate('/upload')}
+              onClick={() => navigate('/register')}
               style={{ height: 44, paddingInline: 28, fontSize: 15 }}
             >
               Начать работу
@@ -266,7 +270,7 @@ export function LandingPage() {
             type="primary"
             size="large"
             icon={<PartitionOutlined />}
-            onClick={() => navigate('/upload')}
+            onClick={() => navigate('/register')}
             style={{ height: 44, paddingInline: 28 }}
           >
             Загрузить данные

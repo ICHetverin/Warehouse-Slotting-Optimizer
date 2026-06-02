@@ -40,6 +40,17 @@ public class Warehouse {
     @Column(name = "aisle_width_m", nullable = false, precision = 5, scale = 2)
     private BigDecimal aisleWidthM;
 
+    /** Owner of the warehouse. Null only for demo warehouses (shared sandbox). */
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private User owner;
+
+    /** Demo warehouses are a shared sandbox: never listed under a user's own warehouses. */
+    @Column(name = "is_demo", nullable = false)
+    @Builder.Default
+    private boolean demo = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

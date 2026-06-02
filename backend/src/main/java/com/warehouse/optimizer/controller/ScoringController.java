@@ -2,6 +2,7 @@ package com.warehouse.optimizer.controller;
 
 import com.warehouse.optimizer.dto.*;
 import com.warehouse.optimizer.service.ScoringService;
+import com.warehouse.optimizer.service.WarehouseAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,7 +11,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ScoringController {
 
-    private final ScoringService scoringService;
+    private final ScoringService         scoringService;
+    private final WarehouseAccessService accessService;
 
     /**
      * POST /api/v1/scoring/run
@@ -18,6 +20,7 @@ public class ScoringController {
      */
     @PostMapping("/run")
     public ApiResponse<ScoringRunResponse> run(@RequestBody ScoringRunRequest req) {
+        accessService.requireReadable(req.warehouseId());
         return ApiResponse.of(scoringService.run(req));
     }
 
@@ -38,6 +41,7 @@ public class ScoringController {
     public ApiResponse<CopickMatrixResponse> matrix(
             @PathVariable Long warehouseId,
             @RequestParam(defaultValue = "90") int days) {
+        accessService.requireReadable(warehouseId);
         return ApiResponse.of(scoringService.getCopickMatrix(warehouseId, days));
     }
 
