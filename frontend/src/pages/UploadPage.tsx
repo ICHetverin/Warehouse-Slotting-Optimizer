@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
   Steps, Card, Form, Input, Select, Button,
-  Alert, Space, Typography, Divider, message,
+  Alert, Space, Typography,
 } from 'antd';
-import { CheckCircleFilled, ThunderboltOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { CheckCircleFilled } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 import { DropZone } from '../components/Upload/DropZone';
 import { api } from '../api/client';
 import type { Warehouse } from '../types';
@@ -21,55 +21,14 @@ interface StepResult {
   count: number;
 }
 
-function DemoBanner() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-
-  const handleDemo = async () => {
-    setLoading(true);
-    try {
-      const res = await api.seedDemo();
-      message.success(`Демо загружено — ID склада: ${res.data.warehouseId}`);
-      navigate(`/recommendations?wid=${res.data.warehouseId}`);
-    } catch {
-      message.error('Не удалось загрузить демо — запущен ли бэкенд?');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card
-      style={{ marginBottom: 24, background: '#EFF6FF', border: '1px solid #BFDBFE' }}
-      styles={{ body: { padding: '16px 20px' } }}
-    >
-      <Space align="start">
-        <ThunderboltOutlined style={{ color: '#1677ff', fontSize: 18, marginTop: 2 }} />
-        <div>
-          <Text strong style={{ fontSize: 14 }}>Пропустить загрузку — попробовать демо</Text>
-          <div>
-            <Text style={{ fontSize: 13, color: '#595959' }}>
-              1&thinsp;000 артикулов, 500 ячеек и 10&thinsp;000 заказов — мгновенно.
-            </Text>
-          </div>
-          <Button
-            type="link"
-            loading={loading}
-            onClick={handleDemo}
-            style={{ padding: 0, height: 'auto', marginTop: 6, fontSize: 13 }}
-          >
-            Загрузить демо-данные →
-          </Button>
-        </div>
-      </Space>
-    </Card>
-  );
-}
-
 export function UploadPage() {
-  const [step, setStep]             = useState<StepKey>('warehouse');
+  const [searchParams] = useSearchParams();
+  const widParam = searchParams.get('wid');
+  const presetWid = widParam ? parseInt(widParam, 10) : null;
+
+  const [step, setStep]             = useState<StepKey>(presetWid ? 'layout' : 'warehouse');
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [selectedWh, setSelectedWh] = useState<number | null>(null);
+  const [selectedWh, setSelectedWh] = useState<number | null>(presetWid);
   const [newWhName, setNewWhName]   = useState('');
   const [results, setResults]       = useState<StepResult[]>([]);
   const [loading, setLoading]       = useState(false);
@@ -126,12 +85,6 @@ export function UploadPage() {
       <Paragraph type="secondary" style={{ marginBottom: 24 }}>
         Загрузите планировку склада, каталог артикулов и историю заказов для начала скоринга.
       </Paragraph>
-
-      <DemoBanner />
-
-      <Divider style={{ marginBottom: 24 }}>
-        <Text style={{ fontSize: 12, color: '#8c8c8c' }}>или загрузите свои данные</Text>
-      </Divider>
 
       <Steps
         current={currentIdx}

@@ -2,6 +2,7 @@ package com.warehouse.optimizer.controller;
 
 import com.warehouse.optimizer.dto.ApiResponse;
 import com.warehouse.optimizer.service.DatasetImportService;
+import com.warehouse.optimizer.service.WarehouseAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,13 +27,15 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DatasetImportController {
 
-    private final DatasetImportService importService;
+    private final DatasetImportService   importService;
+    private final WarehouseAccessService accessService;
 
     /** Шаг 1 — Support_Points.csv: определяет координаты депо */
     @PostMapping("/support-points")
     public ApiResponse<Map<String, Object>> supportPoints(
             @RequestParam Long warehouseId,
             @RequestParam("file") MultipartFile file) {
+        accessService.requireOwned(warehouseId);
         return ApiResponse.of(importService.importSupportPoints(warehouseId, file));
     }
 
@@ -41,6 +44,7 @@ public class DatasetImportController {
     public ApiResponse<Map<String, Integer>> storageLocations(
             @RequestParam Long warehouseId,
             @RequestParam("file") MultipartFile file) {
+        accessService.requireOwned(warehouseId);
         return ApiResponse.of(Map.of("imported", importService.importStorageLocations(warehouseId, file)));
     }
 
@@ -49,6 +53,7 @@ public class DatasetImportController {
     public ApiResponse<Map<String, Integer>> products(
             @RequestParam Long warehouseId,
             @RequestParam("file") MultipartFile file) {
+        accessService.requireOwned(warehouseId);
         return ApiResponse.of(Map.of("imported", importService.importProducts(warehouseId, file)));
     }
 
@@ -57,6 +62,7 @@ public class DatasetImportController {
     public ApiResponse<Map<String, Integer>> customerOrders(
             @RequestParam Long warehouseId,
             @RequestParam("file") MultipartFile file) {
+        accessService.requireOwned(warehouseId);
         return ApiResponse.of(Map.of("imported", importService.importCustomerOrders(warehouseId, file)));
     }
 
@@ -65,6 +71,7 @@ public class DatasetImportController {
     public ApiResponse<Map<String, Integer>> storageStrategy(
             @RequestParam Long warehouseId,
             @RequestParam("file") MultipartFile file) {
+        accessService.requireOwned(warehouseId);
         return ApiResponse.of(Map.of("assigned", importService.importStorageStrategy(warehouseId, file)));
     }
 }

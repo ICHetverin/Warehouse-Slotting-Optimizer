@@ -77,6 +77,7 @@ public class DataSeeder implements CommandLineRunner {
                 .dockX(0)
                 .dockY(0)
                 .aisleWidthM(new BigDecimal("1.5"))
+                .demo(true)            // shared sandbox — never listed under a user's warehouses
                 .build());
     }
 
