@@ -29,6 +29,11 @@ spring:
       port: ${REDIS_PORT:6379}
       timeout: 2000ms
 
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
 server:
   port: ${PORT:8080}
   servlet:
