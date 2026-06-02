@@ -93,7 +93,11 @@ public class DatasetImportService {
             String[] line;
             while ((line = csv.readNext()) != null) {
                 if (line.length < 1) continue;
-                Matcher m = COORD_RE.matcher(line[0]);
+                // Файл разделён табуляцией, но CSVReader парсит по запятой.
+                // Координата "(66.0, -29.0, 1.0)" разбивается на несколько ячеек.
+                // Склеиваем обратно через запятую — regex найдёт паттерн в любом случае.
+                String fullLine = String.join(",", line);
+                Matcher m = COORD_RE.matcher(fullLine);
                 if (!m.find()) continue;
 
                 double x = Double.parseDouble(m.group(1));
