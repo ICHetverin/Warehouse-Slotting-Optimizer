@@ -18,18 +18,20 @@ import { RecommendationsPage } from './pages/RecommendationsPage';
 import { AnalyticsPage }       from './pages/AnalyticsPage';
 import { SettingsPage }        from './pages/SettingsPage';
 import { LandingPage }         from './pages/LandingPage';
+import { DatasetImportPage }   from './pages/DatasetImportPage';
 import { appTheme }            from './theme';
 
 const { Sider, Content } = Layout;
 
 const NAV_ITEMS: MenuProps['items'] = [
-  { key: '/upload',          label: 'Загрузка данных', icon: <UploadOutlined /> },
-  { key: '/map',             label: 'Карта склада',    icon: <AppstoreOutlined /> },
-  { key: '/recommendations', label: 'Рекомендации',   icon: <BulbOutlined /> },
-  { key: '/scoring',         label: 'Скоринг',         icon: <BarChartOutlined /> },
-  { key: '/routes',          label: 'Маршруты',        icon: <NodeIndexOutlined /> },
-  { key: '/analytics',       label: 'Аналитика',       icon: <LineChartOutlined /> },
-  { key: '/settings',        label: 'Настройки',       icon: <SettingOutlined /> },
+  { key: '/upload',          label: 'Загрузка данных',  icon: <UploadOutlined /> },
+  { key: '/dataset-import',  label: 'Импорт датасета',  icon: <LineChartOutlined /> },
+  { key: '/map',             label: 'Карта склада',     icon: <AppstoreOutlined /> },
+  { key: '/recommendations', label: 'Рекомендации',    icon: <BulbOutlined /> },
+  { key: '/scoring',         label: 'Скоринг',          icon: <BarChartOutlined /> },
+  { key: '/routes',          label: 'Маршруты',         icon: <NodeIndexOutlined /> },
+  { key: '/analytics',       label: 'Аналитика',        icon: <LineChartOutlined /> },
+  { key: '/settings',        label: 'Настройки',        icon: <SettingOutlined /> },
 ];
 
 const NAV_KEYS = NAV_ITEMS!.map(item => (item as { key: string }).key);
@@ -86,6 +88,7 @@ function AppShell() {
       <Content style={{ background: '#f5f5f5', overflow: 'auto' }}>
         <Routes>
           <Route path="/upload"          element={<UploadPage />} />
+          <Route path="/dataset-import"  element={<DatasetImportPage />} />
           <Route path="/map"             element={<WarehouseMapPage />} />
           <Route path="/scoring"         element={<ScoringPage />} />
           <Route path="/routes"          element={<RoutesPage />} />
