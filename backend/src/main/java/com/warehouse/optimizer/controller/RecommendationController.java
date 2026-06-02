@@ -3,6 +3,9 @@ package com.warehouse.optimizer.controller;
 import com.warehouse.optimizer.dto.*;
 import com.warehouse.optimizer.service.RecommendationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,5 +52,16 @@ public class RecommendationController {
     @PatchMapping("/{id}/reject")
     public ApiResponse<RecommendationResponse> reject(@PathVariable Long id) {
         return ApiResponse.of(recommendationService.reject(id));
+    }
+
+    /** GET /api/v1/recommendations/{warehouseId}/export — download all recommendations as CSV. */
+    @GetMapping("/{warehouseId}/export")
+    public ResponseEntity<byte[]> export(@PathVariable Long warehouseId) {
+        byte[] csv = recommendationService.exportToCsv(warehouseId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentDispositionFormData("attachment",
+                "recommendations-warehouse-" + warehouseId + ".csv");
+        return ResponseEntity.ok().headers(headers).body(csv);
     }
 }

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import {
   Steps, Card, Form, Input, Select, Button,
-  Alert, Space, Typography,
+  Alert, Space, Typography, Divider, message,
 } from 'antd';
-import { CheckCircleFilled } from '@ant-design/icons';
+import { CheckCircleFilled, ThunderboltOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { DropZone } from '../components/Upload/DropZone';
 import { api } from '../api/client';
 import type { Warehouse } from '../types';
@@ -14,6 +15,55 @@ type StepKey = 'warehouse' | 'layout' | 'skus' | 'orders' | 'done';
 
 const STEP_KEYS: StepKey[] = ['warehouse', 'layout', 'skus', 'orders', 'done'];
 const STEP_TITLES = ['Warehouse', 'Layout', 'SKUs', 'Orders', 'Done'];
+
+function DemoBanner() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+
+  const handleDemo = async () => {
+    setLoading(true);
+    try {
+      const res = await api.seedDemo();
+      message.success(`Demo ready — Warehouse ID: ${res.data.warehouseId}`);
+      navigate(`/recommendations?wid=${res.data.warehouseId}`);
+    } catch {
+      message.error('Could not load demo — is the backend running?');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card
+      style={{
+        marginBottom: 24,
+        background: '#EFF6FF',
+        border: '1px solid #BFDBFE',
+      }}
+      styles={{ body: { padding: '16px 20px' } }}
+    >
+      <Space align="start">
+        <ThunderboltOutlined style={{ color: '#1677ff', fontSize: 18, marginTop: 2 }} />
+        <div>
+          <Text strong style={{ fontSize: 14 }}>Skip the upload — try the demo</Text>
+          <div>
+            <Text style={{ fontSize: 13, color: '#595959' }}>
+              Loads 1 000 SKUs, 500 slots, and 10 000 orders instantly.
+            </Text>
+          </div>
+          <Button
+            type="link"
+            loading={loading}
+            onClick={handleDemo}
+            style={{ padding: 0, height: 'auto', marginTop: 6, fontSize: 13 }}
+          >
+            Load demo data →
+          </Button>
+        </div>
+      </Space>
+    </Card>
+  );
+}
 
 interface StepResult {
   label: string;
@@ -77,9 +127,15 @@ export function UploadPage() {
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 16px' }}>
       <Title level={3} style={{ marginBottom: 4 }}>Import Data</Title>
-      <Paragraph type="secondary" style={{ marginBottom: 32 }}>
+      <Paragraph type="secondary" style={{ marginBottom: 24 }}>
         Upload your warehouse layout, SKU catalog, and order history to start scoring.
       </Paragraph>
+
+      <DemoBanner />
+
+      <Divider style={{ marginBottom: 24 }}>
+        <Text style={{ fontSize: 12, color: '#8c8c8c' }}>or upload your own data</Text>
+      </Divider>
 
       <Steps
         current={currentIdx}

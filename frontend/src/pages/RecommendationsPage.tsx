@@ -3,7 +3,8 @@ import {
   Alert, Button, Card, Col, InputNumber, Row,
   Segmented, Spin, Statistic, Typography, Space,
 } from 'antd';
-import { BulbOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { BulbOutlined, DownloadOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 import { ExplainCard } from '../components/ExplainCard';
 import { api } from '../api/client';
 import type { RecommendationResponse, ScoringWeights } from '../types';
@@ -15,11 +16,16 @@ const DEFAULT_WEIGHTS: ScoringWeights = { w1: 0.5, w2: 0.35, w3: 0.15 };
 type StatusFilter = 'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED';
 
 export function RecommendationsPage() {
-  const [warehouseId, setWarehouseId]   = useState<number | null>(null);
+  const [searchParams] = useSearchParams();
+  const [warehouseId, setWarehouseId]   = useState<number | null>(() => {
+    const wid = searchParams.get('wid');
+    return wid ? parseInt(wid, 10) : null;
+  });
   const [recs, setRecs]                 = useState<RecommendationResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING');
   const [loading, setLoading]           = useState(false);
   const [generating, setGenerating]     = useState(false);
+  const [exporting, setExporting]       = useState(false);
   const [actingId, setActingId]         = useState<number | null>(null);
   const [error, setError]               = useState<string | null>(null);
 
@@ -54,6 +60,24 @@ export function RecommendationsPage() {
       setError(e instanceof Error ? e.message : 'Generation failed');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!warehouseId) return;
+    setExporting(true);
+    try {
+      const blob = await api.exportRecommendations(warehouseId);
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `recommendations-warehouse-${warehouseId}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Export failed');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -125,6 +149,15 @@ export function RecommendationsPage() {
                   onClick={() => load(warehouseId, statusFilter)}
                 >
                   Refresh
+                </Button>
+              )}
+              {warehouseId && recs.length > 0 && (
+                <Button
+                  icon={<DownloadOutlined />}
+                  loading={exporting}
+                  onClick={handleExport}
+                >
+                  Export CSV
                 </Button>
               )}
             </Space>

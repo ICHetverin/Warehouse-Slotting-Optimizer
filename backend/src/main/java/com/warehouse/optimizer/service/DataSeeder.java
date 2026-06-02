@@ -44,17 +44,29 @@ public class DataSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         if (!seedEnabled) return;
-        if (warehouseRepo.findAll().stream().anyMatch(w -> DEMO_NAME.equals(w.getName()))) {
-            log.info("Demo data already present — skipping seed");
-            return;
-        }
+        seedDemoWarehouse();
+    }
 
-        log.info("Seeding demo data...");
-        Warehouse wh = seedWarehouse();
-        List<Sku> skus   = seedSkus(wh);
-        seedSlots(wh);
-        seedOrders(wh, skus);
-        log.info("Seed complete: warehouse={}", wh.getId());
+    /**
+     * Seeds a demo warehouse if one does not already exist, and returns its ID.
+     * Safe to call repeatedly — idempotent.
+     */
+    @Transactional
+    public Long seedDemoWarehouse() {
+        return warehouseRepo.findByName(DEMO_NAME)
+                .map(w -> {
+                    log.info("Demo data already present — warehouse id={}", w.getId());
+                    return w.getId();
+                })
+                .orElseGet(() -> {
+                    log.info("Seeding demo warehouse on demand...");
+                    Warehouse wh   = seedWarehouse();
+                    List<Sku> skus = seedSkus(wh);
+                    seedSlots(wh);
+                    seedOrders(wh, skus);
+                    log.info("Demo warehouse created: id={}", wh.getId());
+                    return wh.getId();
+                });
     }
 
     private Warehouse seedWarehouse() {

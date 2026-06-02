@@ -1,3 +1,8 @@
+export interface DemoSeedResponse {
+  warehouseId: number;
+  message: string;
+}
+
 export interface Warehouse {
   id: number;
   name: string;
