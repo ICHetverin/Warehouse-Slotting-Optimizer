@@ -19,8 +19,11 @@ public class RecommendationController {
     public ApiResponse<List<RecommendationResponse>> generate(@RequestBody ScoringRunRequest req) {
         ScoringWeights weights = req.weights() != null
                 ? req.weights()
-                : new ScoringWeights(0.5, 0.35, 0.15);
-        return ApiResponse.of(recommendationService.generate(req.warehouseId(), weights));
+                : ScoringWeights.DEFAULT;
+        ScoringConstraints constraints = req.constraints() != null
+                ? req.constraints()
+                : ScoringConstraints.DEFAULT;
+        return ApiResponse.of(recommendationService.generate(req.warehouseId(), weights, constraints));
     }
 
     /** GET /api/v1/recommendations/{warehouseId} — list with optional filters. */

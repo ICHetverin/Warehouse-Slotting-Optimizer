@@ -3,7 +3,11 @@ package com.warehouse.optimizer.controller;
 import com.warehouse.optimizer.dto.ApiResponse;
 import com.warehouse.optimizer.dto.WarehouseCreateRequest;
 import com.warehouse.optimizer.exception.NotFoundException;
+import com.warehouse.optimizer.model.Sku;
+import com.warehouse.optimizer.model.Slot;
 import com.warehouse.optimizer.model.Warehouse;
+import com.warehouse.optimizer.repository.SkuRepository;
+import com.warehouse.optimizer.repository.SlotRepository;
 import com.warehouse.optimizer.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,6 +21,8 @@ import java.util.List;
 public class WarehouseController {
 
     private final WarehouseRepository warehouseRepo;
+    private final SkuRepository skuRepo;
+    private final SlotRepository slotRepo;
 
     @GetMapping
     public ApiResponse<List<Warehouse>> list() {
@@ -27,6 +33,16 @@ public class WarehouseController {
     public ApiResponse<Warehouse> get(@PathVariable Long id) {
         return ApiResponse.of(warehouseRepo.findById(id)
                 .orElseThrow(() -> new NotFoundException("Warehouse not found: " + id)));
+    }
+
+    @GetMapping("/{id}/skus")
+    public ApiResponse<List<Sku>> listSkus(@PathVariable Long id) {
+        return ApiResponse.of(skuRepo.findByWarehouseId(id));
+    }
+
+    @GetMapping("/{id}/slots")
+    public ApiResponse<List<Slot>> listSlots(@PathVariable Long id) {
+        return ApiResponse.of(slotRepo.findByWarehouseId(id));
     }
 
     @PostMapping

@@ -51,28 +51,43 @@ public class ExplainerEngine {
         List<ExplanationReason> reasons = new ArrayList<>();
         ScoringWeights w = ctx.weights();
 
-        // Velocity × Distance component
+        // Velocity × Distance × Ergonomics component
         double velFrom = fromSlot != null
-                ? ctx.velocity().getOrDefault(sku.getId(), 0.0)
+                ? ctx.adjustedVelocity(sku.getId())
                   * ctx.slotDistances().getOrDefault(fromSlot.getId(), 0.0)
+                  * ctx.ergonomics().getOrDefault(fromSlot.getId(), 1.0)
                 : 0.0;
-        double velTo   = ctx.velocity().getOrDefault(sku.getId(), 0.0)
-                       * ctx.slotDistances().getOrDefault(toSlot.getId(), 0.0);
+        double velTo   = ctx.adjustedVelocity(sku.getId())
+                       * ctx.slotDistances().getOrDefault(toSlot.getId(), 0.0)
+                       * ctx.ergonomics().getOrDefault(toSlot.getId(), 1.0);
         double velGain = (velTo - velFrom) * w.w1();
 
         if (velGain > 0.01) {
             double velocityPct = ctx.velocity().getOrDefault(sku.getId(), 0.0) * 100;
             double distScore   = ctx.slotDistances().getOrDefault(toSlot.getId(), 0.0);
+            double ergoScore   = ctx.ergonomics().getOrDefault(toSlot.getId(), 1.0);
+            double abcBoost    = ctx.abcBoost().getOrDefault(sku.getId(), 1.0);
+            double xyzBoost    = ctx.xyzBoost().getOrDefault(sku.getId(), 1.0);
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("SKU velocity %.0f%% (adjusted %.2f×) benefits from closer slot (proximity %.2f)"
+                    .formatted(velocityPct, abcBoost * xyzBoost, distScore));
+            if (ergoScore < 1.0) {
+                sb.append(" with ergonomic penalty %.0f%%".formatted(ergoScore * 100));
+            }
+
             reasons.add(new ExplanationReason(
                     "velocity",
-                    "SKU appears in %.0f%% of orders and benefits from a closer slot (proximity score %.2f)"
-                            .formatted(velocityPct, distScore),
+                    sb.toString(),
                     velTo,
                     Map.of(
                             "velocityPct",     Math.round(velocityPct * 10) / 10.0,
+                            "abcBoost",        Math.round(abcBoost * 100) / 100.0,
+                            "xyzBoost",        Math.round(xyzBoost * 100) / 100.0,
                             "fromProximity",   fromSlot != null
                                     ? ctx.slotDistances().getOrDefault(fromSlot.getId(), 0.0) : 0.0,
-                            "toProximity",     distScore
+                            "toProximity",     distScore,
+                            "ergonomics",      Math.round(ergoScore * 100) / 100.0
                     )
             ));
         }
@@ -83,9 +98,11 @@ public class ExplainerEngine {
             double copickTo = copickAffinity(sku.getId(), toSlot.getId(), ctx);
             double copickFrom = fromSlot != null
                     ? copickAffinity(sku.getId(), fromSlot.getId(), ctx) : 0.0;
+            double centroidTo = centroidBias(sku.getId(), toSlot.getId(), ctx);
+            double centroidFrom = fromSlot != null
+                    ? centroidBias(sku.getId(), fromSlot.getId(), ctx) : 0.0;
 
-            if ((copickTo - copickFrom) * w.w2() > 0.005) {
-                // Find strongest partner that is already assigned near toSlot
+            if ((copickTo - copickFrom) * w.w2() > 0.005 || (centroidTo - centroidFrom) * w.w2() > 0.005) {
                 partners.entrySet().stream()
                         .filter(e -> ctx.currentAssignments().containsKey(e.getKey()))
                         .max(Map.Entry.comparingByValue())
@@ -101,35 +118,47 @@ public class ExplainerEngine {
 
                             reasons.add(new ExplanationReason(
                                     "copick",
-                                    "Co-picked with %s (affinity %.0f%%) — new slot is %d step(s) away"
-                                            .formatted(partnerCode, best.getValue() * 100, distance),
+                                    "Co-picked with %s (affinity %.0f%%) — new slot is %d step(s) away, centroid bias %.2f"
+                                            .formatted(partnerCode, best.getValue() * 100, distance, centroidTo),
                                     best.getValue(),
                                     Map.of(
                                             "partnerSku",       partnerCode,
                                             "affinityPct",      Math.round(best.getValue() * 1000) / 10.0,
-                                            "distanceToPartner", distance
+                                            "distanceToPartner", distance,
+                                            "centroidBias",     Math.round(centroidTo * 1000) / 1000.0
                                     )
                             ));
                         });
             }
         }
 
-        // Fit component
+        // Fit component (weight + cube)
         double fitTo   = fitScore(sku, toSlot);
         double fitFrom = fromSlot != null ? fitScore(sku, fromSlot) : 0.0;
         if ((fitTo - fitFrom) * w.w3() > 0.01) {
             double fillRatio = sku.getWeightKg().doubleValue() / toSlot.getCapacityKg().doubleValue();
+            double cubeRatio = 0.0;
+            if (sku.getVolumeM3() != null && toSlot.getVolumeM3() != null && toSlot.getVolumeM3().doubleValue() > 0) {
+                cubeRatio = sku.getVolumeM3().doubleValue() / toSlot.getVolumeM3().doubleValue();
+            }
             reasons.add(new ExplanationReason(
                     "weight_fit",
-                    "Better capacity fit: %.1f kg SKU uses %.0f%% of %.1f kg slot capacity"
-                            .formatted(sku.getWeightKg().doubleValue(),
-                                       fillRatio * 100,
-                                       toSlot.getCapacityKg().doubleValue()),
+                    "Better capacity fit: %.1f kg / %.1f kg slot (%.0f%%), cube %.2f m³ / %.2f m³ (%.0f%%)"
+                            .formatted(
+                                    sku.getWeightKg().doubleValue(),
+                                    toSlot.getCapacityKg().doubleValue(),
+                                    fillRatio * 100,
+                                    sku.getVolumeM3() != null ? sku.getVolumeM3().doubleValue() : 0.0,
+                                    toSlot.getVolumeM3() != null ? toSlot.getVolumeM3().doubleValue() : 0.0,
+                                    cubeRatio * 100),
                     fitTo,
                     Map.of(
-                            "skuWeightKg",   sku.getWeightKg().doubleValue(),
+                            "skuWeightKg",    sku.getWeightKg().doubleValue(),
                             "slotCapacityKg", toSlot.getCapacityKg().doubleValue(),
-                            "fillRatioPct",  Math.round(fillRatio * 1000) / 10.0
+                            "fillRatioPct",   Math.round(fillRatio * 1000) / 10.0,
+                            "skuVolumeM3",    sku.getVolumeM3() != null ? sku.getVolumeM3().doubleValue() : 0.0,
+                            "slotVolumeM3",   toSlot.getVolumeM3() != null ? toSlot.getVolumeM3().doubleValue() : 0.0,
+                            "cubeRatioPct",   Math.round(cubeRatio * 1000) / 10.0
                     )
             ));
         }
@@ -173,13 +202,17 @@ public class ExplainerEngine {
 
     private double computeScore(Long skuId, Long slotId, ScoringContext ctx) {
         ScoringWeights w = ctx.weights();
-        double vel   = ctx.velocity().getOrDefault(skuId, 0.0);
+        double vel   = ctx.adjustedVelocity(skuId);
         double dist  = ctx.slotDistances().getOrDefault(slotId, 0.0);
+        double ergo  = ctx.ergonomics().getOrDefault(slotId, 1.0);
         double copick = copickAffinity(skuId, slotId, ctx);
+        double centroid = centroidBias(skuId, slotId, ctx);
         Sku sku   = ctx.skus().get(skuId);
         Slot slot = ctx.slots().get(slotId);
         double fit = (sku != null && slot != null) ? fitScore(sku, slot) : 0.0;
-        return w.w1() * vel * dist + w.w2() * copick + w.w3() * fit;
+        return w.w1() * vel * dist * ergo
+             + w.w2() * copick * centroid
+             + w.w3() * fit;
     }
 
     private double copickAffinity(Long skuId, Long slotId, ScoringContext ctx) {
@@ -202,9 +235,48 @@ public class ExplainerEngine {
         return count > 0 ? total / count : 0.0;
     }
 
+    private double centroidBias(Long skuId, Long slotId, ScoringContext ctx) {
+        Map<Long, Double> partners = ctx.copickMatrix().getOrDefault(skuId, Map.of());
+        Slot target = ctx.slots().get(slotId);
+        if (target == null || partners.isEmpty()) return 0.0;
+
+        double totalWeight = 0.0;
+        double weightedRow = 0.0;
+        double weightedCol = 0.0;
+        int assignedCount = 0;
+
+        for (Map.Entry<Long, Double> e : partners.entrySet()) {
+            Long partnerSlotId = ctx.currentAssignments().get(e.getKey());
+            if (partnerSlotId == null) continue;
+            Slot partnerSlot = ctx.slots().get(partnerSlotId);
+            if (partnerSlot == null) continue;
+            weightedRow += partnerSlot.getRow() * e.getValue();
+            weightedCol += partnerSlot.getCol() * e.getValue();
+            totalWeight += e.getValue();
+            assignedCount++;
+        }
+
+        if (assignedCount == 0 || totalWeight == 0) return 0.0;
+
+        double centroidRow = weightedRow / totalWeight;
+        double centroidCol = weightedCol / totalWeight;
+        double dist = Math.abs(target.getRow() - centroidRow) + Math.abs(target.getCol() - centroidCol);
+        return 1.0 / (1.0 + dist);
+    }
+
     private double fitScore(Sku sku, Slot slot) {
-        double ratio = sku.getWeightKg().doubleValue() / slot.getCapacityKg().doubleValue();
-        return ratio <= 1.0 ? 1.0 - ratio * 0.5 : 0.0;
+        double weightRatio = sku.getWeightKg().doubleValue() / slot.getCapacityKg().doubleValue();
+        if (weightRatio > 1.0) return 0.0;
+        double weightFit = 1.0 - weightRatio * 0.5;
+
+        double cubeFit = 1.0;
+        if (sku.getVolumeM3() != null && slot.getVolumeM3() != null && slot.getVolumeM3().doubleValue() > 0) {
+            double cubeRatio = sku.getVolumeM3().doubleValue() / slot.getVolumeM3().doubleValue();
+            if (cubeRatio > 1.0) return 0.0;
+            cubeFit = 1.0 - cubeRatio * 0.3;
+        }
+
+        return weightFit * 0.6 + cubeFit * 0.4;
     }
 
     private double scoreAfterMinus(Sku sku, Slot fromSlot, Slot toSlot, ScoringContext ctx) {

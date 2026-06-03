@@ -39,12 +39,17 @@ public class RecommendationService {
      */
     @Transactional
     public List<RecommendationResponse> generate(Long warehouseId, ScoringWeights weights) {
+        return generate(warehouseId, weights, ScoringConstraints.DEFAULT);
+    }
+
+    @Transactional
+    public List<RecommendationResponse> generate(Long warehouseId, ScoringWeights weights, ScoringConstraints constraints) {
         Warehouse warehouse = requireWarehouse(warehouseId);
 
-        List<Assignment> assignments = scoringEngine.runGreedyAssignment(warehouseId, weights);
+        List<Assignment> assignments = scoringEngine.runGreedyAssignment(warehouseId, weights, constraints);
 
         // Build scoring context for explanations
-        Map<Long, Double>            velocity  = scoringEngine.computeVelocity(warehouseId, 90);
+        Map<Long, Double>            velocity  = scoringEngine.computeEwVelocity(warehouseId, 90, weights.decayLambda());
         Map<Long, Map<Long, Double>> copick    = scoringEngine.computeCopickMatrix(warehouseId, 90);
         Map<Long, Double>            distances = scoringEngine.computeSlotDistances(warehouseId);
 
@@ -54,10 +59,17 @@ public class RecommendationService {
         Map<Long, Sku>  skuMap  = allSkus.stream().collect(Collectors.toMap(Sku::getId,  s -> s));
         Map<Long, Slot> slotMap = allSlots.stream().collect(Collectors.toMap(Slot::getId, s -> s));
 
+        Map<Long, Double> rawCounts  = scoringEngine.computeRawCounts(warehouseId, 90);
+        Map<Long, Double> abcBoost   = weights.useAbcXyz() ? scoringEngine.computeAbcClassification(rawCounts) : Map.of();
+        Map<Long, Double> xyzBoost   = weights.useAbcXyz() ? scoringEngine.computeXyzStability(warehouseId, 90) : Map.of();
+        Map<Long, Double> ergonomics = scoringEngine.computeErgonomics(allSlots);
+
         Map<Long, Long> assignmentMap = assignments.stream()
                 .collect(Collectors.toMap(Assignment::skuId, Assignment::toSlotId));
 
-        ScoringContext ctx = new ScoringContext(velocity, copick, distances, skuMap, slotMap, assignmentMap, weights);
+        ScoringContext ctx = new ScoringContext(
+                velocity, copick, distances, skuMap, slotMap, assignmentMap, weights,
+                abcBoost, xyzBoost, ergonomics);
 
         // Clear stale pending recommendations
         recommendationRepo.deleteByWarehouseIdAndStatus(warehouseId, RecommendationStatus.PENDING);

@@ -42,4 +42,23 @@ public interface OrderLineRepository extends JpaRepository<OrderLine, Long> {
             HAVING COUNT(DISTINCT ol1.order_id) > 0
             """, nativeQuery = true)
     List<Object[]> findCopickPairsRaw(@Param("wid") Long warehouseId, @Param("since") Instant since);
+
+    /**
+     * Returns daily order counts per SKU: [skuId, date, count].
+     * Date is returned as java.sql.Date.
+     */
+    @Query(value = """
+            SELECT ol.sku_id AS sku_id,
+                   DATE(o.created_at) AS order_date,
+                   COUNT(DISTINCT o.id) AS cnt
+            FROM order_lines ol
+            JOIN orders o ON ol.order_id = o.id
+            WHERE o.warehouse_id = :wid
+              AND o.created_at >= :since
+            GROUP BY ol.sku_id, DATE(o.created_at)
+            """, nativeQuery = true)
+    List<Object[]> findDailyOrderCounts(@Param("wid") Long warehouseId, @Param("since") Instant since);
+
+    @Query("SELECT ol FROM OrderLine ol WHERE ol.order.id = :orderId")
+    List<OrderLine> findByOrderId(@Param("orderId") Long orderId);
 }
