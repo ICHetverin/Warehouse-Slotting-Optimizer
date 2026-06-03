@@ -2,6 +2,7 @@ package com.warehouse.optimizer.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.opencsv.CSVWriter;
 import com.warehouse.optimizer.dto.*;
 import com.warehouse.optimizer.engine.ExplainerEngine;
 import com.warehouse.optimizer.engine.ScoringContext;
@@ -13,6 +14,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+
+import java.io.IOException;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +37,7 @@ public class RecommendationService {
     private final SkuRepository             skuRepo;
     private final SlotRepository            slotRepo;
     private final ObjectMapper              objectMapper;
+    private final WarehouseAccessService    accessService;
 
     /**
      * Runs greedy assignment, persists recommendations with explanations, and returns them.
@@ -39,6 +45,7 @@ public class RecommendationService {
      */
     @Transactional
     public List<RecommendationResponse> generate(Long warehouseId, ScoringWeights weights) {
+        accessService.requireReadable(warehouseId);
         Warehouse warehouse = requireWarehouse(warehouseId);
 
         List<Assignment> assignments = scoringEngine.runGreedyAssignment(warehouseId, weights);
@@ -93,6 +100,7 @@ public class RecommendationService {
 
     @Transactional(readOnly = true)
     public List<RecommendationResponse> list(Long warehouseId, String sortBy, int limit, String status) {
+        accessService.requireReadable(warehouseId);
         requireWarehouse(warehouseId);
 
         Sort sort = "savings".equalsIgnoreCase(sortBy)
@@ -103,9 +111,9 @@ public class RecommendationService {
 
         List<Recommendation> recs = statusEnum != null
                 ? recommendationRepo.findByWarehouseIdAndStatus(
-                        warehouseId, statusEnum, PageRequest.of(0, limit, sort))
+                        warehouseId, statusEnum, PageRequest.of(0, limit, sort)).getContent()
                 : recommendationRepo.findByWarehouseId(
-                        warehouseId, PageRequest.of(0, limit, sort));
+                        warehouseId, PageRequest.of(0, limit, sort)).getContent();
 
         Map<Long, Sku>  skuMap  = skuRepo.findByWarehouseId(warehouseId).stream()
                 .collect(Collectors.toMap(Sku::getId, s -> s));
@@ -126,8 +134,41 @@ public class RecommendationService {
     }
 
     @Transactional(readOnly = true)
+    public byte[] exportToCsv(Long warehouseId) {
+        accessService.requireReadable(warehouseId);
+        requireWarehouse(warehouseId);
+
+        Sort sort = Sort.by(Sort.Direction.DESC, "scoreDelta");
+        List<Recommendation> recs = recommendationRepo
+                .findByWarehouseId(warehouseId, PageRequest.of(0, 10_000, sort))
+                .getContent();
+
+        try (StringWriter sw = new StringWriter(); CSVWriter csv = new CSVWriter(sw)) {
+            csv.writeNext(new String[]{
+                "id", "sku_code", "from_slot", "to_slot",
+                "score_delta", "status", "created_at"
+            });
+            for (Recommendation r : recs) {
+                csv.writeNext(new String[]{
+                    String.valueOf(r.getId()),
+                    r.getSku().getCode(),
+                    r.getFromSlot() != null ? r.getFromSlot().getLabel() : "",
+                    r.getToSlot()   != null ? r.getToSlot().getLabel()   : "",
+                    r.getScoreDelta().toPlainString(),
+                    r.getStatus().name(),
+                    r.getCreatedAt().toString()
+                });
+            }
+            return sw.toString().getBytes(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate CSV export", e);
+        }
+    }
+
+    @Transactional(readOnly = true)
     public RecommendationResponse getDetail(Long id) {
         Recommendation rec = requireRecommendation(id);
+        accessService.requireReadable(rec.getWarehouse().getId());
         Map<Long, Sku>  skuMap  = skuRepo.findByWarehouseId(rec.getWarehouse().getId()).stream()
                 .collect(Collectors.toMap(Sku::getId, s -> s));
         Map<Long, Slot> slotMap = slotRepo.findByWarehouseId(rec.getWarehouse().getId()).stream()
@@ -139,6 +180,14 @@ public class RecommendationService {
 
     private RecommendationResponse updateStatus(Long id, RecommendationStatus newStatus) {
         Recommendation rec = requireRecommendation(id);
+        accessService.requireReadable(rec.getWarehouse().getId());
+
+        // Apply the physical move only on the PENDING → ACCEPTED transition (idempotent).
+        if (newStatus == RecommendationStatus.ACCEPTED
+                && rec.getStatus() != RecommendationStatus.ACCEPTED) {
+            applyAssignment(rec);
+        }
+
         rec.setStatus(newStatus);
         recommendationRepo.save(rec);
 
@@ -147,6 +196,50 @@ public class RecommendationService {
         Map<Long, Slot> slotMap = slotRepo.findByWarehouseId(rec.getWarehouse().getId()).stream()
                 .collect(Collectors.toMap(Slot::getId, s -> s));
         return toResponse(rec, skuMap, slotMap);
+    }
+
+    /**
+     * Physically applies an accepted recommendation to the warehouse state:
+     * the SKU is moved into the target slot, its previous slot is freed, and any SKU
+     * already occupying the target slot is swapped into the freed slot (or left
+     * unplaced if there is none). This makes accepted recommendations stick — the next
+     * scoring run sees the updated {@code currentSku} placements as the new baseline.
+     */
+    private void applyAssignment(Recommendation rec) {
+        Long wid = rec.getWarehouse().getId();
+        Sku  sku = rec.getSku();
+
+        // Re-load managed slot instances so mutations are persisted.
+        Slot toSlot = slotRepo.findById(rec.getToSlot().getId())
+                .orElseThrow(() -> new NotFoundException("Target slot not found"));
+
+        // Where the SKU currently lives (usually 0 or 1 slot).
+        List<Slot> currentSlotsOfSku = slotRepo.findByWarehouseIdAndCurrentSkuId(wid, sku.getId());
+
+        Sku occupant = toSlot.getCurrentSku();   // who currently sits in the target slot
+
+        // 1. Free the SKU from its current slot(s).
+        for (Slot s : currentSlotsOfSku) {
+            s.setCurrentSku(null);
+        }
+
+        // 2. Swap: if the target was held by a *different* SKU, relocate that occupant
+        //    into the slot we just freed (if any); otherwise it becomes unplaced.
+        if (occupant != null && !occupant.getId().equals(sku.getId())) {
+            Slot freed = currentSlotsOfSku.isEmpty() ? null : currentSlotsOfSku.get(0);
+            if (freed != null) {
+                freed.setCurrentSku(occupant);
+            }
+        }
+
+        // 3. Place the SKU into the target slot.
+        toSlot.setCurrentSku(sku);
+
+        slotRepo.saveAll(currentSlotsOfSku);
+        slotRepo.save(toSlot);
+
+        log.info("Applied recommendation {}: SKU {} -> slot {} (warehouse {})",
+                rec.getId(), sku.getCode(), toSlot.getLabel(), wid);
     }
 
     private RecommendationResponse toResponse(

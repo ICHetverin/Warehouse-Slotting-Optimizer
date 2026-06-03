@@ -1,3 +1,36 @@
+export interface DemoSeedResponse {
+  warehouseId: number;
+  token: string;
+  message: string;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export type Role = 'USER' | 'ADMIN' | 'GUEST';
+
+export interface AuthResponse {
+  token: string | null;
+  userId: number | null;
+  email: string;
+  role: Role;
+}
+
+export interface AuthUser {
+  userId: number | null;
+  email: string;
+  role: Role;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+}
+
 export interface Warehouse {
   id: number;
   name: string;

@@ -4,6 +4,7 @@ import {
   Alert, Space, Typography,
 } from 'antd';
 import { CheckCircleFilled } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 import { DropZone } from '../components/Upload/DropZone';
 import { api } from '../api/client';
 import type { Warehouse } from '../types';
@@ -12,8 +13,8 @@ const { Title, Text, Paragraph } = Typography;
 
 type StepKey = 'warehouse' | 'layout' | 'skus' | 'orders' | 'done';
 
-const STEP_KEYS: StepKey[] = ['warehouse', 'layout', 'skus', 'orders', 'done'];
-const STEP_TITLES = ['Warehouse', 'Layout', 'SKUs', 'Orders', 'Done'];
+const STEP_KEYS:   StepKey[] = ['warehouse', 'layout', 'skus', 'orders', 'done'];
+const STEP_TITLES             = ['Склад', 'Планировка', 'Артикулы', 'Заказы', 'Готово'];
 
 interface StepResult {
   label: string;
@@ -21,9 +22,13 @@ interface StepResult {
 }
 
 export function UploadPage() {
-  const [step, setStep]             = useState<StepKey>('warehouse');
+  const [searchParams] = useSearchParams();
+  const widParam = searchParams.get('wid');
+  const presetWid = widParam ? parseInt(widParam, 10) : null;
+
+  const [step, setStep]             = useState<StepKey>(presetWid ? 'layout' : 'warehouse');
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [selectedWh, setSelectedWh] = useState<number | null>(null);
+  const [selectedWh, setSelectedWh] = useState<number | null>(presetWid);
   const [newWhName, setNewWhName]   = useState('');
   const [results, setResults]       = useState<StepResult[]>([]);
   const [loading, setLoading]       = useState(false);
@@ -44,7 +49,7 @@ export function UploadPage() {
 
   const handleWarehouse = async () => {
     if (selectedWh) { setStep('layout'); return; }
-    if (!newWhName.trim()) { setError('Enter a warehouse name'); return; }
+    if (!newWhName.trim()) { setError('Введите название склада'); return; }
     setLoading(true);
     try {
       const res = await api.createWarehouse({
@@ -54,7 +59,7 @@ export function UploadPage() {
       setSelectedWh(res.data.id);
       setWarehouses(prev => [...prev, res.data]);
       setStep('layout');
-    } catch { handleError('Failed to create warehouse'); }
+    } catch { handleError('Не удалось создать склад'); }
   };
 
   const upload = async (
@@ -70,15 +75,15 @@ export function UploadPage() {
       handleOk(label, res.data.imported);
       setStep(next);
     } catch (e: unknown) {
-      handleError(e instanceof Error ? e.message : 'Upload failed');
+      handleError(e instanceof Error ? e.message : 'Ошибка загрузки');
     }
   };
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Import Data</Title>
-      <Paragraph type="secondary" style={{ marginBottom: 32 }}>
-        Upload your warehouse layout, SKU catalog, and order history to start scoring.
+      <Title level={3} style={{ marginBottom: 4 }}>Загрузка данных</Title>
+      <Paragraph type="secondary" style={{ marginBottom: 24 }}>
+        Загрузите планировку склада, каталог артикулов и историю заказов для начала скоринга.
       </Paragraph>
 
       <Steps
@@ -98,7 +103,7 @@ export function UploadPage() {
             <Space key={i} size={8}>
               <CheckCircleFilled style={{ color: '#16A34A' }} />
               <Text style={{ fontSize: 13 }}>
-                {r.label}: <Text strong>{r.count.toLocaleString()}</Text> records imported
+                {r.label}: <Text strong>{r.count.toLocaleString('ru-RU')}</Text> записей импортировано
               </Text>
             </Space>
           ))}
@@ -117,12 +122,12 @@ export function UploadPage() {
       )}
 
       {step === 'warehouse' && (
-        <Card title="1. Select or create warehouse">
+        <Card title="1. Выбрать или создать склад">
           <Form layout="vertical">
             {warehouses.length > 0 && (
-              <Form.Item label="Existing warehouses">
+              <Form.Item label="Существующие склады">
                 <Select
-                  placeholder="— create new —"
+                  placeholder="— создать новый —"
                   value={selectedWh ?? undefined}
                   onChange={(v: number | undefined) => setSelectedWh(v ?? null)}
                   allowClear
@@ -131,9 +136,9 @@ export function UploadPage() {
               </Form.Item>
             )}
             {!selectedWh && (
-              <Form.Item label="New warehouse name">
+              <Form.Item label="Название нового склада">
                 <Input
-                  placeholder="e.g. Main Warehouse — Kiev"
+                  placeholder="например Главный склад — Бугры"
                   value={newWhName}
                   onChange={e => setNewWhName(e.target.value)}
                   onPressEnter={handleWarehouse}
@@ -141,62 +146,61 @@ export function UploadPage() {
               </Form.Item>
             )}
             <Button type="primary" block loading={loading} onClick={handleWarehouse}>
-              {selectedWh ? 'Continue' : 'Create & continue'}
+              {selectedWh ? 'Продолжить' : 'Создать и продолжить'}
             </Button>
           </Form>
         </Card>
       )}
 
       {step === 'layout' && (
-        <Card title="2. Upload warehouse layout">
+        <Card title="2. Загрузить планировку склада">
           <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-            CSV format: <Text code>slot_label, row, col, level, zone, capacity_kg</Text>
+            Формат CSV: <Text code>slot_label, row, col, level, zone, capacity_kg</Text>
           </Paragraph>
           <DropZone
-            label="Drop layout.csv here"
+            label="Перетащите layout.csv сюда"
             hint="slot_label, row, col, level, zone, capacity_kg"
             disabled={loading}
-            onFile={f => upload(f, api.uploadLayout.bind(api), 'Layout', 'skus')}
+            onFile={f => upload(f, api.uploadLayout.bind(api), 'Планировка', 'skus')}
           />
         </Card>
       )}
 
       {step === 'skus' && (
-        <Card title="3. Upload SKU catalog">
+        <Card title="3. Загрузить каталог артикулов">
           <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-            CSV format: <Text code>code, name, weight_kg, volume_m3, category</Text>
+            Формат CSV: <Text code>code, name, weight_kg, volume_m3, category</Text>
           </Paragraph>
           <DropZone
-            label="Drop skus.csv here"
+            label="Перетащите skus.csv сюда"
             hint="code, name, weight_kg, volume_m3, category"
             disabled={loading}
-            onFile={f => upload(f, api.uploadSkus.bind(api), 'SKUs', 'orders')}
+            onFile={f => upload(f, api.uploadSkus.bind(api), 'Артикулы', 'orders')}
           />
         </Card>
       )}
 
       {step === 'orders' && (
-        <Card title="4. Upload order history">
+        <Card title="4. Загрузить историю заказов">
           <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-            CSV format: <Text code>order_id, sku_code, quantity, timestamp</Text>
+            Формат CSV: <Text code>order_id, sku_code, quantity, timestamp</Text>
           </Paragraph>
           <DropZone
-            label="Drop orders.csv here"
+            label="Перетащите orders.csv сюда"
             hint="order_id, sku_code, quantity, timestamp"
             disabled={loading}
-            onFile={f => upload(f, api.uploadOrders.bind(api), 'Orders', 'done')}
+            onFile={f => upload(f, api.uploadOrders.bind(api), 'Заказы', 'done')}
           />
         </Card>
       )}
 
       {step === 'done' && (
-        <Card title="All done!">
+        <Card title="Всё готово!">
           <Paragraph style={{ marginBottom: 16 }}>
-            Your data is loaded. Go to <Text strong>Scoring</Text> to generate placement
-            recommendations.
+            Данные загружены. Перейдите в <Text strong>Скоринг</Text> для получения рекомендаций по размещению.
           </Paragraph>
           <Button type="primary" block href="/scoring">
-            Run Scoring
+            Запустить скоринг
           </Button>
         </Card>
       )}

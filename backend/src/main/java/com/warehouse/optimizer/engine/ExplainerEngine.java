@@ -65,7 +65,7 @@ public class ExplainerEngine {
             double distScore   = ctx.slotDistances().getOrDefault(toSlot.getId(), 0.0);
             reasons.add(new ExplanationReason(
                     "velocity",
-                    "SKU appears in %.0f%% of orders and benefits from a closer slot (proximity score %.2f)"
+                    "Товар встречается в %.0f%% заказов и выиграет от более близкой ячейки (оценка близости %.2f)"
                             .formatted(velocityPct, distScore),
                     velTo,
                     Map.of(
@@ -101,7 +101,7 @@ public class ExplainerEngine {
 
                             reasons.add(new ExplanationReason(
                                     "copick",
-                                    "Co-picked with %s (affinity %.0f%%) — new slot is %d step(s) away"
+                                    "Совместный заказ с %s (аффинити %.0f%%) — новая ячейка на %d шаг(а) ближе"
                                             .formatted(partnerCode, best.getValue() * 100, distance),
                                     best.getValue(),
                                     Map.of(
@@ -121,7 +121,7 @@ public class ExplainerEngine {
             double fillRatio = sku.getWeightKg().doubleValue() / toSlot.getCapacityKg().doubleValue();
             reasons.add(new ExplanationReason(
                     "weight_fit",
-                    "Better capacity fit: %.1f kg SKU uses %.0f%% of %.1f kg slot capacity"
+                    "Лучшее соответствие грузоподъёмности: артикул %.1f кг занимает %.0f%% ёмкости ячейки %.1f кг"
                             .formatted(sku.getWeightKg().doubleValue(),
                                        fillRatio * 100,
                                        toSlot.getCapacityKg().doubleValue()),
@@ -137,7 +137,7 @@ public class ExplainerEngine {
         if (reasons.isEmpty()) {
             reasons.add(new ExplanationReason(
                     "general",
-                    "Combined score improvement across velocity, co-pick, and capacity fit",
+                    "Общее улучшение скора: скорость продаж, совместные заказы и грузоподъёмность",
                     scoreAfterMinus(sku, fromSlot, toSlot, ctx),
                     Map.of()
             ));

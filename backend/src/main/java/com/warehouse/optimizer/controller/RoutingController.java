@@ -2,6 +2,7 @@ package com.warehouse.optimizer.controller;
 
 import com.warehouse.optimizer.dto.*;
 import com.warehouse.optimizer.service.RoutingService;
+import com.warehouse.optimizer.service.WarehouseAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,7 +11,8 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class RoutingController {
 
-    private final RoutingService routingService;
+    private final RoutingService         routingService;
+    private final WarehouseAccessService accessService;
 
     /**
      * POST /api/v1/routing/optimize
@@ -18,6 +20,7 @@ public class RoutingController {
      */
     @PostMapping("/optimize")
     public ApiResponse<Route> optimize(@RequestBody OptimizeRouteRequest req) {
+        accessService.requireReadable(req.warehouseId());
         return ApiResponse.of(routingService.optimizeRoute(req));
     }
 
@@ -27,6 +30,7 @@ public class RoutingController {
      */
     @PostMapping("/compare")
     public ApiResponse<RouteComparison> compare(@RequestBody CompareRoutesRequest req) {
+        accessService.requireReadable(req.warehouseId());
         return ApiResponse.of(routingService.compareRoutes(req));
     }
 
@@ -36,6 +40,7 @@ public class RoutingController {
      */
     @GetMapping("/graph/{warehouseId}")
     public ApiResponse<WarehouseGraphResponse> graph(@PathVariable Long warehouseId) {
+        accessService.requireReadable(warehouseId);
         return ApiResponse.of(routingService.getWarehouseGraph(warehouseId));
     }
 }

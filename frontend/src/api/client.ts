@@ -1,6 +1,10 @@
 import axios from 'axios';
 import type {
   ApiResponse,
+  AuthResponse,
+  DemoSeedResponse,
+  LoginPayload,
+  RegisterPayload,
   Warehouse,
   ScoringRunResponse,
   ScoringWeights,
@@ -11,13 +15,90 @@ import type {
   RouteComparison,
   RecommendationResponse,
 } from '../types';
+import { getToken, clearAuth } from '../lib/auth';
 
 const http = axios.create({
   baseURL: '/api/v1',
   timeout: 60_000,
 });
 
+// Attach the JWT to every request.
+http.interceptors.request.use(config => {
+  const token = getToken();
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`);
+  }
+  return config;
+});
+
+// On 401, drop stale auth and bounce to login (unless already on an auth page).
+http.interceptors.response.use(
+  res => res,
+  err => {
+    const status = err?.response?.status;
+    const url    = err?.config?.url ?? '';
+    const onAuthRoute = ['/login', '/register'].some(p => window.location.pathname.startsWith(p));
+    const isAuthCall  = url.includes('/auth/');
+    if (status === 401 && !onAuthRoute && !isAuthCall) {
+      clearAuth();
+      window.location.assign('/login');
+    }
+    return Promise.reject(err);
+  },
+);
+
 export const api = {
+  // ── Auth ────────────────────────────────────────────────────────────────────
+
+  register(payload: RegisterPayload): Promise<ApiResponse<AuthResponse>> {
+    return http.post<ApiResponse<AuthResponse>>('/auth/register', payload).then(r => r.data);
+  },
+
+  login(payload: LoginPayload): Promise<ApiResponse<AuthResponse>> {
+    return http.post<ApiResponse<AuthResponse>>('/auth/login', payload).then(r => r.data);
+  },
+
+  me(): Promise<ApiResponse<AuthResponse>> {
+    return http.get<ApiResponse<AuthResponse>>('/auth/me').then(r => r.data);
+  },
+  // ── Dataset import (реальный датасет склада) ──────────────────────────────
+
+  importSupportPoints(warehouseId: number, file: File): Promise<ApiResponse<Record<string, number>>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<Record<string, number>>>(
+      `/import/support-points?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  importStorageLocations(warehouseId: number, file: File): Promise<ApiResponse<UploadResult>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<UploadResult>>(
+      `/import/storage-locations?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  importProducts(warehouseId: number, file: File): Promise<ApiResponse<UploadResult>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<UploadResult>>(
+      `/import/products?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  importCustomerOrders(warehouseId: number, file: File): Promise<ApiResponse<UploadResult>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<UploadResult>>(
+      `/import/customer-orders?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  importStorageStrategy(warehouseId: number, file: File): Promise<ApiResponse<{ assigned: number }>> {
+    const form = new FormData(); form.append('file', file);
+    return http.post<ApiResponse<{ assigned: number }>>(
+      `/import/storage-strategy?warehouseId=${warehouseId}`, form).then(r => r.data);
+  },
+
+  // ── Demo ──────────────────────────────────────────────────────────────────
+
+  seedDemo(): Promise<ApiResponse<DemoSeedResponse>> {
+    return http.post<ApiResponse<DemoSeedResponse>>('/demo/seed').then(r => r.data);
+  },
+
   // ── Warehouses ─────────────────────────────────────────────────────────────
 
   listWarehouses(): Promise<ApiResponse<Warehouse[]>> {
@@ -142,5 +223,11 @@ export const api = {
     return http
       .patch<ApiResponse<RecommendationResponse>>(`/recommendations/${id}/reject`)
       .then(r => r.data);
+  },
+
+  exportRecommendations(warehouseId: number): Promise<Blob> {
+    return http
+      .get(`/recommendations/${warehouseId}/export`, { responseType: 'blob' })
+      .then(r => r.data as Blob);
   },
 };

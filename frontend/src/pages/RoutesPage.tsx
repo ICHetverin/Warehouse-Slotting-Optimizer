@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Alert, Button, Card, Col, Divider, Form, InputNumber,
+  Alert, Button, Card, Col, Form, InputNumber,
   Row, Space, Statistic, Tag, Typography, Input,
 } from 'antd';
 import {
@@ -11,20 +11,12 @@ import type { RouteComparison } from '../types';
 
 const { Title, Paragraph, Text } = Typography;
 
-function DistanceBadge({ value, color }: { value: number; color?: string }) {
-  return (
-    <span style={{ fontVariantNumeric: 'tabular-nums', color: color ?? 'inherit' }}>
-      {value.toFixed(1)} m
-    </span>
-  );
-}
-
 function RoutePathViz({
   path,
   label,
   color,
 }: {
-  path: number[];
+  path:  number[];
   label: string;
   color: string;
 }) {
@@ -56,7 +48,7 @@ function RoutePathViz({
           </span>
         ))}
         {rest > 0 && (
-          <Text style={{ fontSize: 11, color: '#8c8c8c' }}>+{rest} more</Text>
+          <Text style={{ fontSize: 11, color: '#8c8c8c' }}>+{rest} ещё</Text>
         )}
       </div>
     </div>
@@ -78,19 +70,17 @@ export function RoutesPage() {
       .filter(n => !isNaN(n) && n > 0);
 
   const runCompare = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
+    if (!warehouseId) { setError('Введите ID склада'); return; }
     const skuIds = parseSkuIds();
-    if (skuIds.length === 0) { setError('Enter at least one SKU ID'); return; }
+    if (skuIds.length === 0) { setError('Введите хотя бы один ID артикула'); return; }
 
     setLoading(true);
     setError(null);
     try {
-      // Use current and proposed as the same list (demo: compare optimised vs sequential)
       const optimRes = await api.optimizeRoute({ warehouseId, skuIds, cartCapacityKg: cartCap });
-      const currentSlots: Record<number, number> = {};
+      const currentSlots: Record<number, number>  = {};
       const proposedSlots: Record<number, number> = {};
 
-      // For demo: current = skuIds in order given, proposed = optimised order
       skuIds.forEach((id, i) => { currentSlots[id] = i + 1; });
       optimRes.data.orderedSlotIds.forEach((slotId, i) => {
         const skuId = skuIds[i] ?? skuIds[0];
@@ -106,22 +96,21 @@ export function RoutesPage() {
       });
       setResult(compareRes.data);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Route optimisation failed');
+      setError(e instanceof Error ? e.message : 'Ошибка оптимизации маршрута');
     } finally {
       setLoading(false);
     }
   };
 
   const runOptimize = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
+    if (!warehouseId) { setError('Введите ID склада'); return; }
     const skuIds = parseSkuIds();
-    if (skuIds.length === 0) { setError('Enter at least one SKU ID'); return; }
+    if (skuIds.length === 0) { setError('Введите хотя бы один ID артикула'); return; }
 
     setLoading(true);
     setError(null);
     try {
       const res = await api.optimizeRoute({ warehouseId, skuIds, cartCapacityKg: cartCap });
-      // Show as a "comparison" with itself for layout consistency
       setResult({
         currentDistanceM:  res.data.totalDistanceM,
         proposedDistanceM: res.data.totalDistanceM,
@@ -131,7 +120,7 @@ export function RoutesPage() {
         proposedRoute:     res.data,
       });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Route optimisation failed');
+      setError(e instanceof Error ? e.message : 'Ошибка оптимизации маршрута');
     } finally {
       setLoading(false);
     }
@@ -139,40 +128,41 @@ export function RoutesPage() {
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Route Optimizer</Title>
+      <Title level={3} style={{ marginBottom: 4 }}>Оптимизатор маршрута</Title>
       <Paragraph type="secondary" style={{ marginBottom: 32 }}>
-        Optimise pick routes using TSP (exact for ≤ 10 stops, nearest-neighbour + 2-opt for larger lists).
+        Оптимизация маршрутов сборки методом TSP — точный алгоритм для ≤10 остановок,
+        ближайший сосед + 2-opt для больших списков.
       </Paragraph>
 
-      <Card title="Parameters" style={{ marginBottom: 24 }}>
+      <Card title="Параметры" style={{ marginBottom: 24 }}>
         <Form layout="vertical">
           <Row gutter={24}>
             <Col span={6}>
-              <Form.Item label="Warehouse ID" style={{ marginBottom: 0 }}>
+              <Form.Item label="ID склада" style={{ marginBottom: 0 }}>
                 <InputNumber
                   style={{ width: '100%' }}
                   min={1}
-                  placeholder="e.g. 1"
+                  placeholder="например 1"
                   value={warehouseId ?? undefined}
                   onChange={v => setWarehouseId(v ?? null)}
                 />
               </Form.Item>
             </Col>
             <Col span={6}>
-              <Form.Item label="Cart Capacity (kg)" style={{ marginBottom: 0 }}>
+              <Form.Item label="Грузоподъёмность тележки (кг)" style={{ marginBottom: 0 }}>
                 <InputNumber
                   style={{ width: '100%' }}
                   min={0}
-                  placeholder="0 = unlimited"
+                  placeholder="0 = без ограничений"
                   value={cartCap}
                   onChange={v => setCartCap(v ?? 0)}
                 />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="SKU IDs (comma or space separated)" style={{ marginBottom: 0 }}>
+              <Form.Item label="ID артикулов (через запятую или пробел)" style={{ marginBottom: 0 }}>
                 <Input
-                  placeholder="e.g. 1, 2, 5, 12, 30"
+                  placeholder="например 1, 2, 5, 12, 30"
                   value={skuInput}
                   onChange={e => setSkuInput(e.target.value)}
                 />
@@ -187,14 +177,14 @@ export function RoutesPage() {
                 loading={loading}
                 onClick={runOptimize}
               >
-                Optimize Route
+                Оптимизировать маршрут
               </Button>
               <Button
                 icon={<EnvironmentOutlined />}
                 loading={loading}
                 onClick={runCompare}
               >
-                Compare Before / After
+                Сравнить до / после
               </Button>
             </Space>
           </div>
@@ -218,9 +208,9 @@ export function RoutesPage() {
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Current Distance"
+                  title="Текущее расстояние"
                   value={result.currentDistanceM.toFixed(1)}
-                  suffix="m"
+                  suffix="м"
                   valueStyle={{ color: '#DC2626' }}
                 />
               </Card>
@@ -228,9 +218,9 @@ export function RoutesPage() {
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Proposed Distance"
+                  title="Новое расстояние"
                   value={result.proposedDistanceM.toFixed(1)}
-                  suffix="m"
+                  suffix="м"
                   valueStyle={{ color: '#16A34A' }}
                 />
               </Card>
@@ -238,9 +228,9 @@ export function RoutesPage() {
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Savings"
+                  title="Экономия"
                   value={result.savingsM.toFixed(1)}
-                  suffix="m"
+                  suffix="м"
                   prefix={result.savingsM > 0 ? '↓' : ''}
                   valueStyle={{ color: result.savingsM > 0 ? '#16A34A' : '#595959' }}
                 />
@@ -249,7 +239,7 @@ export function RoutesPage() {
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Improvement"
+                  title="Улучшение"
                   value={result.savingsPct.toFixed(1)}
                   suffix="%"
                   valueStyle={{ color: result.savingsPct > 0 ? '#16A34A' : '#595959' }}
@@ -258,19 +248,19 @@ export function RoutesPage() {
             </Col>
           </Row>
 
-          <Card title="Route Detail">
+          <Card title="Детали маршрута">
             <Row gutter={32}>
               <Col span={12}>
                 <RoutePathViz
                   path={result.currentRoute.fullPath}
-                  label={`Current Route — ${result.currentDistanceM.toFixed(1)} m, ${result.currentRoute.tripCount} trip(s)`}
+                  label={`Текущий маршрут — ${result.currentDistanceM.toFixed(1)} м, ${result.currentRoute.tripCount} рейс(а)`}
                   color="#DC2626"
                 />
               </Col>
               <Col span={12}>
                 <RoutePathViz
                   path={result.proposedRoute.fullPath}
-                  label={`Proposed Route — ${result.proposedDistanceM.toFixed(1)} m, ${result.proposedRoute.tripCount} trip(s)`}
+                  label={`Предложенный маршрут — ${result.proposedDistanceM.toFixed(1)} м, ${result.proposedRoute.tripCount} рейс(а)`}
                   color="#16A34A"
                 />
               </Col>
