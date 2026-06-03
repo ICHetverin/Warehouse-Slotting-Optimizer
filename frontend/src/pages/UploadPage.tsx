@@ -138,7 +138,7 @@ export function UploadPage() {
             {!selectedWh && (
               <Form.Item label="Название нового склада">
                 <Input
-                  placeholder="например Главный склад — Киев"
+                  placeholder="например Главный склад — Бугры"
                   value={newWhName}
                   onChange={e => setNewWhName(e.target.value)}
                   onPressEnter={handleWarehouse}
