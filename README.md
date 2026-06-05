@@ -188,9 +188,6 @@ cd frontend && npm install && npm run dev
 - **Прогноз = WAPE** (устойчив к нулям, в отличие от MAPE/sMAPE).
 - **ABC/XYZ**, экспоненциально-взвешенная velocity, эргономика golden-zone, centroid bias.
 
-Подробно с формулами и обоснованием — в [`STATISTICS_AND_SCORING.md`](STATISTICS_AND_SCORING.md).
-Зачем именно так и как защищать — в [`DEFENSE.md`](DEFENSE.md).
-
 ---
 
 ## Структура проекта
