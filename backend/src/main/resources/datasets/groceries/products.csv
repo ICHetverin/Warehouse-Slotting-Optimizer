@@ -1,0 +1,170 @@
+code,name,weight_kg,volume_m3,category
+ABRASIVE_CLEANER,abrasive cleaner,1.9379,0.0214,Household
+ARTIF._SWEETENER,artif. sweetener,0.336,0.0121,Grocery
+BABY_COSMETICS,baby cosmetics,3.571,0.0253,Grocery
+BABY_FOOD,baby food,2.9374,0.0049,Grocery
+BAGS,bags,3.5154,0.0062,Household
+BAKING_POWDER,baking powder,2.4595,0.0556,Grocery
+BATHROOM_CLEANER,bathroom cleaner,0.7509,0.0009,Household
+BEEF,beef,2.6929,0.0494,Meat & Frozen
+BERRIES,berries,0.682,0.0058,Produce
+BEVERAGES,beverages,3.0983,0.054,Drinks
+BOTTLED_BEER,bottled beer,3.1966,0.0292,Drinks
+BOTTLED_WATER,bottled water,3.2332,0.024,Drinks
+BRANDY,brandy,2.114,0.0156,Grocery
+BROWN_BREAD,brown bread,2.8422,0.0247,Bakery
+BUTTER,butter,3.0128,0.0555,Dairy
+BUTTER_MILK,butter milk,2.7674,0.0467,Dairy
+CAKE_BAR,cake bar,3.6418,0.0133,Bakery
+CANDLES,candles,3.0762,0.0537,Grocery
+CANDY,candy,1.8086,0.0312,Snacks
+CANNED_BEER,canned beer,2.2142,0.0259,Drinks
+CANNED_FISH,canned fish,3.1367,0.0266,Meat & Frozen
+CANNED_FRUIT,canned fruit,2.442,0.0011,Produce
+CANNED_VEGETABLES,canned vegetables,3.1734,0.0383,Produce
+CAT_FOOD,cat food,3.7398,0.051,Grocery
+CEREALS,cereals,2.7802,0.0422,Grocery
+CHEWING_GUM,chewing gum,3.2095,0.0413,Grocery
+CHICKEN,chicken,2.734,0.0227,Meat & Frozen
+CHOCOLATE,chocolate,2.2954,0.0348,Snacks
+CHOCOLATE_MARSHMALLOW,chocolate marshmallow,2.3381,0.0456,Snacks
+CITRUS_FRUIT,citrus fruit,3.9939,0.0184,Produce
+CLEANER,cleaner,1.316,0.0418,Household
+CLING_FILM_BAGS,cling film/bags,2.3251,0.0422,Household
+COCOA_DRINKS,cocoa drinks,1.801,0.0285,Grocery
+COFFEE,coffee,0.8513,0.0442,Drinks
+CONDENSED_MILK,condensed milk,1.8547,0.0168,Dairy
+COOKING_CHOCOLATE,cooking chocolate,1.7282,0.0063,Snacks
+COOKWARE,cookware,3.2548,0.0038,Grocery
+CREAM,cream,1.4802,0.0196,Dairy
+CREAM_CHEESE,cream cheese,1.9587,0.057,Dairy
+CURD,curd,0.3982,0.0308,Dairy
+CURD_CHEESE,curd cheese,3.4554,0.0139,Dairy
+DECALCIFIER,decalcifier,0.6138,0.0117,Grocery
+DENTAL_CARE,dental care,3.2613,0.059,Grocery
+DESSERT,dessert,2.0005,0.0252,Snacks
+DETERGENT,detergent,2.7522,0.0435,Household
+DISHES,dishes,3.3226,0.0358,Household
+DISH_CLEANER,dish cleaner,3.1286,0.0229,Household
+DOG_FOOD,dog food,1.5297,0.0235,Grocery
+DOMESTIC_EGGS,domestic eggs,1.6061,0.0267,Grocery
+FEMALE_SANITARY_PRODUCTS,female sanitary products,3.4703,0.0162,Grocery
+FINISHED_PRODUCTS,finished products,1.5701,0.0483,Grocery
+FISH,fish,1.2627,0.0517,Meat & Frozen
+FLOUR,flour,2.623,0.0126,Grocery
+FLOWER_(SEEDS),flower (seeds),3.8085,0.018,Grocery
+FLOWER_SOIL_FERTILIZER,flower soil/fertilizer,3.1771,0.0469,Grocery
+FRANKFURTER,frankfurter,1.5425,0.0402,Grocery
+FROZEN_CHICKEN,frozen chicken,0.5672,0.0304,Meat & Frozen
+FROZEN_DESSERT,frozen dessert,0.7669,0.021,Meat & Frozen
+FROZEN_FISH,frozen fish,3.3195,0.0511,Meat & Frozen
+FROZEN_FRUITS,frozen fruits,2.2067,0.0069,Produce
+FROZEN_MEALS,frozen meals,1.8456,0.0371,Meat & Frozen
+FROZEN_POTATO_PRODUCTS,frozen potato products,2.6703,0.007,Produce
+FROZEN_VEGETABLES,frozen vegetables,1.495,0.0311,Produce
+FRUIT_VEGETABLE_JUICE,fruit/vegetable juice,0.9657,0.0582,Produce
+GRAPES,grapes,3.9557,0.0328,Produce
+HAIR_SPRAY,hair spray,3.1696,0.0165,Grocery
+HAM,ham,1.2318,0.0501,Meat & Frozen
+HAMBURGER_MEAT,hamburger meat,2.0622,0.0359,Meat & Frozen
+HARD_CHEESE,hard cheese,3.2965,0.0369,Dairy
+HERBS,herbs,1.2959,0.0369,Produce
+HONEY,honey,1.8193,0.0541,Grocery
+HOUSE_KEEPING_PRODUCTS,house keeping products,1.8815,0.0408,Grocery
+HYGIENE_ARTICLES,hygiene articles,3.0156,0.0009,Household
+ICE_CREAM,ice cream,2.4588,0.0242,Dairy
+INSTANT_COFFEE,instant coffee,0.7844,0.022,Drinks
+INSTANT_FOOD_PRODUCTS,Instant food products,2.6502,0.0142,Grocery
+JAM,jam,2.6355,0.0346,Grocery
+KETCHUP,ketchup,3.3584,0.0366,Grocery
+KITCHEN_TOWELS,kitchen towels,1.0879,0.0566,Grocery
+KITCHEN_UTENSIL,kitchen utensil,0.4416,0.0451,Grocery
+LIGHT_BULBS,light bulbs,0.6739,0.0259,Grocery
+LIQUEUR,liqueur,3.7545,0.0174,Grocery
+LIQUOR,liquor,0.9655,0.0568,Drinks
+LIQUOR_(APPETIZER),liquor (appetizer),1.4393,0.0024,Drinks
+LIVER_LOAF,liver loaf,0.1613,0.0252,Grocery
+LONG_LIFE_BAKERY_PRODUCT,long life bakery product,2.8995,0.0319,Bakery
+MAKE_UP_REMOVER,make up remover,1.7533,0.0575,Grocery
+MALE_COSMETICS,male cosmetics,2.2004,0.0539,Grocery
+MARGARINE,margarine,2.6319,0.0053,Grocery
+MAYONNAISE,mayonnaise,0.2938,0.0227,Grocery
+MEAT,meat,2.3577,0.0204,Meat & Frozen
+MEAT_SPREADS,meat spreads,1.8533,0.047,Meat & Frozen
+MISC._BEVERAGES,misc. beverages,1.7588,0.0421,Drinks
+MUSTARD,mustard,2.1463,0.0144,Grocery
+NAPKINS,napkins,0.9979,0.034,Household
+NEWSPAPERS,newspapers,3.2157,0.0582,Grocery
+NUTS_PRUNES,nuts/prunes,2.3938,0.0236,Snacks
+NUT_SNACK,nut snack,0.4481,0.0315,Snacks
+OIL,oil,2.582,0.0269,Grocery
+ONIONS,onions,1.9759,0.0037,Produce
+ORGANIC_PRODUCTS,organic products,2.8524,0.0532,Grocery
+ORGANIC_SAUSAGE,organic sausage,2.5431,0.0102,Meat & Frozen
+OTHER_VEGETABLES,other vegetables,1.7279,0.0402,Produce
+PACKAGED_FRUIT_VEGETABLES,packaged fruit/vegetables,1.0722,0.0118,Produce
+PASTA,pasta,2.4011,0.0528,Grocery
+PASTRY,pastry,1.1836,0.0128,Bakery
+PET_CARE,pet care,3.185,0.0306,Grocery
+PHOTO_FILM,photo/film,2.2804,0.0351,Grocery
+PICKLED_VEGETABLES,pickled vegetables,1.7877,0.0028,Produce
+PIP_FRUIT,pip fruit,0.5141,0.0459,Produce
+POPCORN,popcorn,0.4474,0.0197,Snacks
+PORK,pork,2.4578,0.0075,Meat & Frozen
+POTATO_PRODUCTS,potato products,0.9174,0.019,Produce
+POT_PLANTS,pot plants,3.1957,0.042,Grocery
+PRESERVATION_PRODUCTS,preservation products,3.6588,0.0095,Grocery
+PROCESSED_CHEESE,processed cheese,2.2447,0.0299,Dairy
+PROSECCO,prosecco,2.5602,0.0517,Grocery
+PUDDING_POWDER,pudding powder,3.595,0.0562,Grocery
+READY_SOUPS,ready soups,3.2177,0.0091,Grocery
+RED_BLUSH_WINE,red/blush wine,0.8126,0.0268,Drinks
+RICE,rice,3.2189,0.0467,Grocery
+ROLLS_BUNS,rolls/buns,3.5384,0.0546,Bakery
+ROLL_PRODUCTS,roll products,0.8419,0.0273,Bakery
+ROOT_VEGETABLES,root vegetables,0.8158,0.0135,Produce
+RUBBING_ALCOHOL,rubbing alcohol,0.7954,0.035,Grocery
+RUM,rum,2.3554,0.0567,Grocery
+SALAD_DRESSING,salad dressing,0.661,0.0204,Grocery
+SALT,salt,2.2375,0.0364,Grocery
+SALTY_SNACK,salty snack,1.0816,0.0503,Snacks
+SAUCES,sauces,3.3775,0.0281,Grocery
+SAUSAGE,sausage,0.7362,0.0364,Meat & Frozen
+SEASONAL_PRODUCTS,seasonal products,2.0745,0.0314,Grocery
+SEMI_FINISHED_BREAD,semi-finished bread,1.4362,0.0234,Bakery
+SHOPPING_BAGS,shopping bags,0.1837,0.0019,Household
+SKIN_CARE,skin care,1.3163,0.0159,Grocery
+SLICED_CHEESE,sliced cheese,3.0418,0.0488,Dairy
+SNACK_PRODUCTS,snack products,3.4589,0.021,Snacks
+SOAP,soap,1.2869,0.0303,Household
+SODA,soda,1.2846,0.0088,Drinks
+SOFTENER,softener,1.737,0.0547,Grocery
+SOFT_CHEESE,soft cheese,3.5175,0.0417,Dairy
+SOUND_STORAGE_MEDIUM,sound storage medium,1.5517,0.0052,Grocery
+SOUPS,soups,0.5374,0.0358,Grocery
+SPARKLING_WINE,sparkling wine,0.3205,0.008,Drinks
+SPECIALTY_BAR,specialty bar,1.6301,0.0587,Grocery
+SPECIALTY_CHEESE,specialty cheese,2.6804,0.0537,Dairy
+SPECIALTY_CHOCOLATE,specialty chocolate,3.2121,0.0181,Snacks
+SPECIALTY_FAT,specialty fat,1.6659,0.0214,Grocery
+SPECIALTY_VEGETABLES,specialty vegetables,1.3778,0.0035,Produce
+SPICES,spices,0.2108,0.0561,Grocery
+SPREAD_CHEESE,spread cheese,1.1272,0.0536,Dairy
+SUGAR,sugar,0.5209,0.0195,Snacks
+SWEET_SPREADS,sweet spreads,3.8146,0.0575,Grocery
+SYRUP,syrup,2.84,0.0522,Grocery
+TEA,tea,0.747,0.0305,Drinks
+TIDBITS,tidbits,0.2821,0.0519,Grocery
+TOILET_CLEANER,toilet cleaner,3.2239,0.0023,Household
+TROPICAL_FRUIT,tropical fruit,1.6928,0.0251,Produce
+TURKEY,turkey,2.9121,0.0306,Grocery
+UHT_MILK,UHT-milk,2.1039,0.0066,Dairy
+VINEGAR,vinegar,0.941,0.0067,Grocery
+WAFFLES,waffles,1.1061,0.0534,Grocery
+WHIPPED_SOUR_CREAM,whipped/sour cream,0.5778,0.0138,Dairy
+WHISKY,whisky,2.5448,0.0509,Grocery
+WHITE_BREAD,white bread,2.4202,0.0414,Bakery
+WHITE_WINE,white wine,1.0552,0.0577,Drinks
+WHOLE_MILK,whole milk,2.7349,0.054,Dairy
+YOGURT,yogurt,0.1684,0.0171,Dairy
+ZWIEBACK,zwieback,3.4989,0.0332,Grocery

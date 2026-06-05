@@ -95,7 +95,7 @@ public class UploadService {
     }
 
     // ── Layout CSV ────────────────────────────────────────────────────────────
-    // Expected header: slot_label,row,col,level,zone,capacity_kg
+    // Expected header: slot_label,row,col,level,zone,capacity_kg[,volume_m3]
 
     @Transactional
     public int importLayout(Long warehouseId, MultipartFile file) {
@@ -110,15 +110,20 @@ public class UploadService {
             while ((line = csv.readNext()) != null) {
                 if (line.length < 6) continue;
 
-                slots.add(Slot.builder()
+                Slot.SlotBuilder builder = Slot.builder()
                         .warehouse(wh)
                         .label(line[0].trim())
                         .row(Integer.parseInt(line[1].trim()))
                         .col(Integer.parseInt(line[2].trim()))
                         .level(Integer.parseInt(line[3].trim()))
                         .zone(line[4].trim())
-                        .capacityKg(new BigDecimal(line[5].trim()))
-                        .build());
+                        .capacityKg(new BigDecimal(line[5].trim()));
+
+                if (line.length > 6 && !line[6].isBlank()) {
+                    builder.volumeM3(new BigDecimal(line[6].trim()));
+                }
+
+                slots.add(builder.build());
             }
 
         } catch (IOException | CsvValidationException e) {

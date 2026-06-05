@@ -1,230 +1,215 @@
-import { useEffect, useState } from 'react';
-import {
-  Alert, Button, Card, Col, InputNumber, Row,
-  Segmented, Select, Spin, Statistic, Typography, Space,
-} from 'antd';
-import { BulbOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useState } from 'react';
+import { App, Button, Col, Modal, Popconfirm, Row, Segmented, Space, Spin, Typography } from 'antd';
+import { BulbOutlined, CheckOutlined, PlayCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { PageContainer } from '../components/layout/PageContainer';
+import { PageHeader } from '../components/layout/PageHeader';
+import { SectionCard } from '../components/common/SectionCard';
+import { StatCard } from '../components/common/StatCard';
+import { EmptyState } from '../components/common/EmptyState';
+import { RequireWarehouse } from '../components/common/RequireWarehouse';
 import { ExplainCard } from '../components/ExplainCard';
+import { useWeights } from '../app/WeightsContext';
 import { api } from '../api/client';
-import type { RecommendationResponse, ScoringWeights } from '../types';
-
-const { Title, Paragraph, Text } = Typography;
-
-const DEFAULT_WEIGHTS: ScoringWeights = { w1: 0.5, w2: 0.35, w3: 0.15 };
+import type { RecommendationResponse } from '../types';
 
 type StatusFilter = 'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED';
 
-export function RecommendationsPage() {
-  const [warehouseId, setWarehouseId]   = useState<number | null>(null);
-  const [recs, setRecs]                 = useState<RecommendationResponse[]>([]);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('PENDING');
-  const [loading, setLoading]           = useState(false);
-  const [generating, setGenerating]     = useState(false);
-  const [actingId, setActingId]         = useState<number | null>(null);
-  const [error, setError]               = useState<string | null>(null);
+function RecList({ warehouseId }: { warehouseId: number }) {
+  const { message } = App.useApp();
+  const { weights } = useWeights();
+  const [recs, setRecs] = useState<RecommendationResponse[]>([]);
+  const [filter, setFilter] = useState<StatusFilter>('PENDING');
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [acceptingAll, setAcceptingAll] = useState(false);
+  const [actingId, setActingId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<RecommendationResponse | null>(null);
 
-  const load = async (wid: number, status: StatusFilter) => {
+  const load = useCallback(async (status: StatusFilter) => {
     setLoading(true);
-    setError(null);
     try {
-      const res = await api.listRecommendations(wid, {
+      const data = await api.listRecommendations(warehouseId, {
         status: status === 'ALL' ? undefined : status,
-        limit:  100,
+        limit: 1000,
       });
-      setRecs(res.data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load recommendations');
+      setRecs(data);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Не удалось загрузить рекомендации');
     } finally {
       setLoading(false);
     }
-  };
+  }, [warehouseId, message]);
 
-  useEffect(() => {
-    if (warehouseId) load(warehouseId, statusFilter);
-  }, [warehouseId, statusFilter]);
+  useEffect(() => { void load(filter); }, [load, filter]);
 
   const generate = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
     setGenerating(true);
-    setError(null);
     try {
-      const res = await api.generateRecommendations(warehouseId, DEFAULT_WEIGHTS);
-      setRecs(res.data.filter(r => statusFilter === 'ALL' || r.status === statusFilter));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Generation failed');
+      await api.generateRecommendations({ warehouseId, weights });
+      setFilter('PENDING');
+      await load('PENDING');
+      message.success('Рекомендации сгенерированы');
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Генерация не удалась');
     } finally {
       setGenerating(false);
     }
   };
 
-  const handleAccept = async (id: number) => {
-    setActingId(id);
+  const acceptAll = async () => {
+    setAcceptingAll(true);
     try {
-      const res = await api.acceptRecommendation(id);
-      setRecs(prev => prev.map(r => r.id === id ? res.data : r));
-    } catch { /* ignore */ }
-    setActingId(null);
+      const r = await api.acceptAllRecommendations(warehouseId, 'PENDING');
+      message.success(`Применено ${r.applied}, пропущено ${r.skipped}`);
+      await load(filter);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Не удалось применить рекомендации');
+    } finally {
+      setAcceptingAll(false);
+    }
   };
 
-  const handleReject = async (id: number) => {
+  const act = async (id: number, kind: 'accept' | 'reject') => {
     setActingId(id);
     try {
-      const res = await api.rejectRecommendation(id);
-      setRecs(prev => prev.map(r => r.id === id ? res.data : r));
-    } catch { /* ignore */ }
-    setActingId(null);
+      const updated = kind === 'accept'
+        ? await api.acceptRecommendation(id)
+        : await api.rejectRecommendation(id);
+      setRecs(prev => prev.map(r => (r.id === id ? updated : r)));
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Действие не удалось');
+    } finally {
+      setActingId(null);
+    }
   };
 
-  const pending  = recs.filter(r => r.status === 'PENDING').length;
+  const openDetail = async (id: number) => {
+    try { setDetail(await api.getRecommendationDetail(id)); } catch { /* ignore */ }
+  };
+
+  const pending = recs.filter(r => r.status === 'PENDING').length;
   const accepted = recs.filter(r => r.status === 'ACCEPTED').length;
   const rejected = recs.filter(r => r.status === 'REJECTED').length;
-  const topSaving = recs
-    .filter(r => r.explanation?.impact.estimatedDailySavingsMin)
-    .reduce((sum, r) => sum + (r.explanation?.impact.estimatedDailySavingsMin ?? 0), 0);
-
-  const visible = statusFilter === 'ALL'
-    ? recs
-    : recs.filter(r => r.status === statusFilter);
+  const savingMin = recs.reduce((s, r) => s + (r.explanation?.impact.estimatedDailySavingsMin ?? 0), 0);
+  const visible = filter === 'ALL' ? recs : recs.filter(r => r.status === filter);
 
   return (
-    <div style={{ maxWidth: 880, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Recommendations</Title>
-      <Paragraph type="secondary" style={{ marginBottom: 24 }}>
-        Each card shows <em>why</em> a slot change is recommended — with velocity, co-pick, and
-        capacity reasons backed by real numbers.
-      </Paragraph>
-
-      <Card style={{ marginBottom: 24 }}>
-        <Row gutter={24} align="middle" wrap>
-          <Col>
-            <Text style={{ fontSize: 13 }}>Warehouse ID</Text>
-            <div style={{ marginTop: 4 }}>
-              <InputNumber
-                min={1}
-                placeholder="e.g. 1"
-                value={warehouseId ?? undefined}
-                onChange={v => setWarehouseId(v ?? null)}
-                style={{ width: 140 }}
-              />
-            </div>
-          </Col>
-          <Col style={{ marginTop: 20 }}>
-            <Space>
-              <Button
-                type="primary"
-                icon={<PlayCircleOutlined />}
-                loading={generating}
-                onClick={generate}
-              >
-                Generate Recommendations
+    <Space orientation="vertical" size={20} style={{ width: '100%' }}>
+      <SectionCard>
+        <Space wrap>
+          <Button type="primary" icon={<PlayCircleOutlined />} loading={generating} onClick={generate}>
+            Сгенерировать рекомендации
+          </Button>
+          <Button icon={<ReloadOutlined />} loading={loading} onClick={() => load(filter)}>
+            Обновить
+          </Button>
+          {pending > 0 && (
+            <Popconfirm
+              title="Применить все ожидающие рекомендации к раскладке?"
+              okText="Применить"
+              cancelText="Отмена"
+              onConfirm={acceptAll}
+            >
+              <Button icon={<CheckOutlined />} loading={acceptingAll}>
+                Принять все
               </Button>
-              {warehouseId && (
-                <Button
-                  icon={<ReloadOutlined />}
-                  loading={loading}
-                  onClick={() => load(warehouseId, statusFilter)}
-                >
-                  Refresh
-                </Button>
-              )}
-            </Space>
-          </Col>
-        </Row>
-      </Card>
-
-      {error && (
-        <Alert
-          type="error"
-          message={error}
-          showIcon
-          closable
-          onClose={() => setError(null)}
-          style={{ marginBottom: 16 }}
-        />
-      )}
+            </Popconfirm>
+          )}
+        </Space>
+      </SectionCard>
 
       {recs.length > 0 && (
-        <Row gutter={16} style={{ marginBottom: 24 }}>
-          <Col span={6}>
-            <Card>
-              <Statistic title="Pending" value={pending} valueStyle={{ color: '#1677ff' }} />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic title="Accepted" value={accepted} valueStyle={{ color: '#16A34A' }} />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic title="Rejected" value={rejected} valueStyle={{ color: '#DC2626' }} />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Est. Daily Saving"
-                value={topSaving.toFixed(1)}
-                suffix="min"
-                valueStyle={{ color: '#16A34A' }}
-                prefix={<BulbOutlined />}
-              />
-            </Card>
-          </Col>
-        </Row>
-      )}
+        <>
+          <Typography.Text type="secondary">
+            {recs.length} статистически значимых рекомендаций
+          </Typography.Text>
 
-      {recs.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            <Col xs={12} md={6}><StatCard label="Ожидают" value={pending} tone="primary" /></Col>
+            <Col xs={12} md={6}><StatCard label="Приняты" value={accepted} tone="success" /></Col>
+            <Col xs={12} md={6}><StatCard label="Отклонены" value={rejected} tone="error" /></Col>
+            <Col xs={12} md={6}>
+              <StatCard label="Экономия/день" value={savingMin.toFixed(1)} suffix="мин" tone="success" />
+            </Col>
+          </Row>
+
           <Segmented<StatusFilter>
-            value={statusFilter}
-            onChange={v => setStatusFilter(v)}
+            value={filter}
+            onChange={setFilter}
             options={[
-              { label: `All (${recs.length})`,       value: 'ALL' },
-              { label: `Pending (${pending})`,        value: 'PENDING' },
-              { label: `Accepted (${accepted})`,      value: 'ACCEPTED' },
-              { label: `Rejected (${rejected})`,      value: 'REJECTED' },
+              { label: `Все (${recs.length})`, value: 'ALL' },
+              { label: `Ожидают (${pending})`, value: 'PENDING' },
+              { label: `Приняты (${accepted})`, value: 'ACCEPTED' },
+              { label: `Отклонены (${rejected})`, value: 'REJECTED' },
             ]}
           />
-        </div>
+        </>
       )}
 
-      {(loading || generating) && (
+      {loading || generating ? (
         <div style={{ textAlign: 'center', padding: 48 }}>
           <Spin size="large" />
-          <div style={{ marginTop: 12, color: '#8c8c8c', fontSize: 13 }}>
-            {generating ? 'Running scoring and generating explanations…' : 'Loading…'}
+          <div style={{ marginTop: 12, color: '#94a3b8', fontSize: 13 }}>
+            {generating ? 'Скоринг и формирование объяснений…' : 'Загрузка…'}
           </div>
+        </div>
+      ) : visible.length === 0 ? (
+        <SectionCard>
+          <EmptyState
+            icon={<BulbOutlined />}
+            title="Рекомендаций пока нет"
+            description="Нажмите «Сгенерировать рекомендации», чтобы прогнать скоринг и получить объяснимые предложения по перестановке."
+          />
+        </SectionCard>
+      ) : (
+        <div>
+          {visible.map(rec => (
+            <div key={rec.id} onClick={() => { if (rec.explanation == null) openDetail(rec.id); }}>
+              <ExplainCard
+                rec={rec}
+                onAccept={id => act(id, 'accept')}
+                onReject={id => act(id, 'reject')}
+                accepting={actingId === rec.id}
+                rejecting={actingId === rec.id}
+              />
+            </div>
+          ))}
         </div>
       )}
 
-      {!loading && !generating && visible.length === 0 && warehouseId && (
-        <Card>
-          <div style={{ textAlign: 'center', padding: 40, color: '#8c8c8c', fontSize: 14 }}>
-            No {statusFilter !== 'ALL' ? statusFilter.toLowerCase() + ' ' : ''}recommendations.{' '}
-            {statusFilter === 'PENDING' && 'Click "Generate Recommendations" to run scoring.'}
-          </div>
-        </Card>
-      )}
+      <Modal
+        open={detail != null}
+        onCancel={() => setDetail(null)}
+        footer={null}
+        title={detail ? `Рекомендация · ${detail.skuCode}` : ''}
+        width={640}
+      >
+        {detail && (
+          <Typography.Paragraph>
+            <b>{detail.fromSlot ?? '—'}</b> → <b>{detail.toSlot}</b>, Δ {detail.scoreDelta.toFixed(3)}.
+            {detail.explanation && (
+              <ul style={{ marginTop: 12 }}>
+                {detail.explanation.reasons.map((r, i) => (
+                  <li key={i}>{r.description}</li>
+                ))}
+              </ul>
+            )}
+          </Typography.Paragraph>
+        )}
+      </Modal>
+    </Space>
+  );
+}
 
-      {!loading && !generating && !warehouseId && (
-        <Card>
-          <div style={{ textAlign: 'center', padding: 40, color: '#8c8c8c', fontSize: 14 }}>
-            Enter a warehouse ID and click "Generate Recommendations".
-          </div>
-        </Card>
-      )}
-
-      {!loading && !generating && visible.map(rec => (
-        <ExplainCard
-          key={rec.id}
-          rec={rec}
-          onAccept={handleAccept}
-          onReject={handleReject}
-          accepting={actingId === rec.id}
-          rejecting={actingId === rec.id}
-        />
-      ))}
-    </div>
+export function RecommendationsPage() {
+  return (
+    <PageContainer maxWidth={920}>
+      <PageHeader
+        icon={<BulbOutlined />}
+        title="Рекомендации"
+        description="Каждая карточка показывает, почему предлагается переставить товар — с числами по velocity, co-pick и вместимости. Принимайте или отклоняйте предложения."
+      />
+      <RequireWarehouse>{warehouseId => <RecList warehouseId={warehouseId} />}</RequireWarehouse>
+    </PageContainer>
   );
 }

@@ -11,5 +11,6 @@ public record ScoringRunResponse(
         int totalAssignments,
         int improved,
         List<Assignment> assignments,
+        ScoringValidation validation,
         Instant computedAt
 ) {}

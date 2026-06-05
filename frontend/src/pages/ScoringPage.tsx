@@ -1,242 +1,248 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Button, Card, Col, Form, InputNumber, Row, Slider,
-  Statistic, Table, Tag, Typography, Space, Alert, Spin,
+  App, Button, Col, Row, Space, Table, Tag, Typography,
 } from 'antd';
-import { PlayCircleOutlined, RiseOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, ReloadOutlined, SlidersOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import {
+  Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts';
+import { PageContainer } from '../components/layout/PageContainer';
+import { PageHeader } from '../components/layout/PageHeader';
+import { SectionCard } from '../components/common/SectionCard';
+import { StatCard } from '../components/common/StatCard';
+import { RequireWarehouse } from '../components/common/RequireWarehouse';
+import { WeightSliders } from '../components/common/WeightSliders';
+import { AnalysisWindowControl } from '../components/common/AnalysisWindowControl';
+import { useAsync } from '../hooks/useAsync';
+import { useWeights } from '../app/WeightsContext';
 import { api } from '../api/client';
-import type { Assignment, ScoringRunResponse, ScoringWeights } from '../types';
+import type { Assignment, ScoringRunResponse } from '../types';
+import { tokens } from '../theme';
 
-const { Title, Paragraph, Text } = Typography;
+type AbcXyz = { abcClass: string; xyzClass: string };
 
-const DEFAULT_WEIGHTS: ScoringWeights = { w1: 0.5, w2: 0.35, w3: 0.15 };
+const ABC_COLOR: Record<string, string> = { A: 'blue', B: 'cyan', C: 'default' };
+const XYZ_COLOR: Record<string, string> = { X: 'green', Y: 'gold', Z: 'red' };
 
-function WeightSliders({
-  weights,
-  onChange,
-}: {
-  weights: ScoringWeights;
-  onChange: (w: ScoringWeights) => void;
-}) {
-  const set = (key: keyof ScoringWeights, val: number) =>
-    onChange({ ...weights, [key]: val });
+function buildColumns(abcXyzMap: Map<number, AbcXyz>): ColumnsType<Assignment> {
+  return [
+    { title: 'SKU', dataIndex: 'skuCode', sorter: (a, b) => a.skuCode.localeCompare(b.skuCode), width: 120 },
+    {
+      title: 'ABC', width: 70, align: 'center',
+      render: (_, r) => {
+        const cls = abcXyzMap.get(r.skuId)?.abcClass;
+        return cls ? <Tag color={ABC_COLOR[cls] ?? 'default'}>{cls}</Tag> : <Typography.Text type="secondary">—</Typography.Text>;
+      },
+    },
+    {
+      title: 'XYZ', width: 70, align: 'center',
+      render: (_, r) => {
+        const cls = abcXyzMap.get(r.skuId)?.xyzClass;
+        return cls ? <Tag color={XYZ_COLOR[cls] ?? 'default'}>{cls}</Tag> : <Typography.Text type="secondary">—</Typography.Text>;
+      },
+    },
+    { title: 'Откуда', dataIndex: 'fromLabel', width: 110, render: v => v ?? <Typography.Text type="secondary">—</Typography.Text> },
+    { title: 'Куда', dataIndex: 'toLabel', width: 110 },
+    { title: 'Скор', dataIndex: 'score', width: 90, align: 'right', sorter: (a, b) => a.score - b.score, render: v => v.toFixed(3) },
+    {
+      title: 'Δ', dataIndex: 'scoreDelta', width: 100, align: 'right',
+      sorter: (a, b) => a.scoreDelta - b.scoreDelta, defaultSortOrder: 'descend',
+      render: (v: number) => (
+        <Tag color={v > 0 ? 'success' : v < 0 ? 'error' : 'default'}>
+          {v > 0 ? '+' : ''}{v.toFixed(3)}
+        </Tag>
+      ),
+    },
+  ];
+}
 
+function DeltaHistogram({ assignments }: { assignments: Assignment[] }) {
+  const bins = useMemo(() => {
+    const deltas = assignments.map(a => a.scoreDelta);
+    if (!deltas.length) return [];
+    const min = Math.min(...deltas);
+    const max = Math.max(...deltas);
+    const n = 12;
+    const span = max - min || 1;
+    const step = span / n;
+    const buckets = Array.from({ length: n }, (_, i) => ({
+      mid: min + step * (i + 0.5),
+      label: (min + step * (i + 0.5)).toFixed(2),
+      count: 0,
+    }));
+    for (const d of deltas) {
+      const idx = Math.min(n - 1, Math.floor((d - min) / step));
+      buckets[idx].count++;
+    }
+    return buckets;
+  }, [assignments]);
+
+  if (!bins.length) return null;
   return (
-    <Row gutter={24}>
-      {(
-        [
-          { key: 'w1', label: 'Velocity × Distance', color: '#1677ff' },
-          { key: 'w2', label: 'Co-pick Affinity',    color: '#7C3AED' },
-          { key: 'w3', label: 'Weight Fit',           color: '#059669' },
-        ] as { key: keyof ScoringWeights; label: string; color: string }[]
-      ).map(({ key, label, color }) => (
-        <Col span={8} key={key}>
-          <div style={{ marginBottom: 4 }}>
-            <Text style={{ fontSize: 12, color: '#595959' }}>{label}</Text>
-            <Text strong style={{ float: 'right', fontSize: 12 }}>
-              {weights[key].toFixed(2)}
-            </Text>
-          </div>
-          <Slider
-            min={0}
-            max={1}
-            step={0.05}
-            value={weights[key]}
-            onChange={v => set(key, v)}
-            styles={{ track: { background: color }, handle: { borderColor: color } }}
-          />
-        </Col>
-      ))}
-    </Row>
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={bins} margin={{ top: 8, right: 8, bottom: 4, left: -16 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={tokens.borderSoft} vertical={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: tokens.textTertiary }} interval={1} />
+        <YAxis tick={{ fontSize: 11, fill: tokens.textTertiary }} allowDecimals={false} />
+        <Tooltip
+          formatter={(v: number) => [`${v} SKU`, 'Количество']}
+          labelFormatter={l => `Δ ≈ ${l}`}
+          contentStyle={{ borderRadius: 8, fontSize: 12, border: `1px solid ${tokens.border}` }}
+        />
+        <Bar dataKey="count" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+          {bins.map((b, i) => (
+            <Cell key={i} fill={b.mid > 0 ? tokens.success : b.mid < 0 ? tokens.error : tokens.textTertiary} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
-const COLUMNS: ColumnsType<Assignment> = [
-  {
-    title: 'SKU',
-    dataIndex: 'skuCode',
-    sorter: (a, b) => a.skuCode.localeCompare(b.skuCode),
-    width: 120,
-  },
-  {
-    title: 'From',
-    dataIndex: 'fromLabel',
-    render: v => v ?? <Text type="secondary">—</Text>,
-    width: 100,
-  },
-  {
-    title: 'To',
-    dataIndex: 'toLabel',
-    width: 100,
-  },
-  {
-    title: 'Score',
-    dataIndex: 'score',
-    render: v => v.toFixed(3),
-    sorter: (a, b) => a.score - b.score,
-    width: 90,
-    align: 'right',
-  },
-  {
-    title: 'Delta',
-    dataIndex: 'scoreDelta',
-    render: v => (
-      <Tag color={v > 0 ? 'success' : v < 0 ? 'error' : 'default'}>
-        {v > 0 ? '+' : ''}{v.toFixed(3)}
-      </Tag>
-    ),
-    sorter: (a, b) => a.scoreDelta - b.scoreDelta,
-    defaultSortOrder: 'descend',
-    width: 100,
-    align: 'right',
-  },
-];
-
 export function ScoringPage() {
-  const [warehouseId, setWarehouseId] = useState<number | null>(null);
-  const [weights, setWeights]         = useState<ScoringWeights>(DEFAULT_WEIGHTS);
-  const [result, setResult]           = useState<ScoringRunResponse | null>(null);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState<string | null>(null);
-
-  const run = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
-    setLoading(true);
-    setError(null);
+  const { message } = App.useApp();
+  const navigate = useNavigate();
+  const { weights, setWeights } = useWeights();
+  const [days, setDays] = useState(1200);
+  const [abcXyzMap, setAbcXyzMap] = useState<Map<number, AbcXyz>>(new Map());
+  const scoring = useAsync<ScoringRunResponse, [number]>(async (warehouseId: number) => {
+    await api.validateWeights(weights); // server-side weight validation (PATCH /scoring/weights)
+    const res = await api.runScoring({ warehouseId, weights, velocityDays: days });
     try {
-      const res = await api.runScoring(warehouseId, weights);
-      setResult(res.data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Scoring failed');
-    } finally {
-      setLoading(false);
+      const { profiles } = await api.getAbcXyz(warehouseId, days);
+      setAbcXyzMap(new Map(profiles.map(p => [p.skuId, { abcClass: p.abcClass, xyzClass: p.xyzClass }])));
+    } catch {
+      setAbcXyzMap(new Map());
     }
+    return res;
+  });
+
+  const reload = async (jobId: string) => {
+    const res = await api.getScoringResult(jobId).catch(() => null);
+    if (res) { scoring.setData(res); message.success('Результат перезагружен по jobId'); }
   };
 
+  const result = scoring.data;
+  const columns = useMemo(() => buildColumns(abcXyzMap), [abcXyzMap]);
+
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Scoring Engine</Title>
-      <Paragraph type="secondary" style={{ marginBottom: 32 }}>
-        Run greedy slot assignment and tune component weights. Formula:{' '}
-        <Text code>score = w1·velocity·distance + w2·copick + w3·fit</Text>
-      </Paragraph>
+    <PageContainer>
+      <PageHeader
+        icon={<SlidersOutlined />}
+        title="Скоринг размещения"
+        description={
+          <>
+            Жадный алгоритм переставляет товары по ячейкам. Подберите веса и окно анализа, затем нажмите
+            «Запустить». Формула:{' '}
+            <Typography.Text code>score = w1·velocity·distance + w2·copick + w3·fit</Typography.Text>.
+          </>
+        }
+      />
+      <RequireWarehouse>
+        {warehouseId => (
+          <Space orientation="vertical" size={20} style={{ width: '100%' }}>
+            <SectionCard title="Параметры" description="Веса определяют, что важнее при размещении.">
+              <Row gutter={[24, 16]}>
+                <Col xs={24} md={14}>
+                  <WeightSliders value={weights} onChange={setWeights} disabled={scoring.loading} />
+                </Col>
+                <Col xs={24} md={10}>
+                  <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                    <AnalysisWindowControl value={days} onChange={setDays} disabled={scoring.loading} />
+                    <Button
+                      type="primary"
+                      icon={<PlayCircleOutlined />}
+                      loading={scoring.loading}
+                      onClick={() => scoring.run(warehouseId)}
+                    >
+                      Запустить скоринг
+                    </Button>
+                  </Space>
+                </Col>
+              </Row>
+            </SectionCard>
 
-      <Card title="Configuration" style={{ marginBottom: 24 }}>
-        <Form layout="vertical">
-          <Row gutter={24} align="bottom">
-            <Col span={8}>
-              <Form.Item label="Warehouse ID" style={{ marginBottom: 0 }}>
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={1}
-                  placeholder="e.g. 1"
-                  value={warehouseId ?? undefined}
-                  onChange={v => setWarehouseId(v ?? null)}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          <div style={{ marginTop: 24, marginBottom: 8 }}>
-            <Text strong style={{ fontSize: 13 }}>Component Weights</Text>
-          </div>
-          <WeightSliders weights={weights} onChange={setWeights} />
-          <div style={{ marginTop: 24 }}>
-            <Button
-              type="primary"
-              icon={<PlayCircleOutlined />}
-              loading={loading}
-              onClick={run}
-              size="middle"
-            >
-              Run Scoring
-            </Button>
-          </div>
-        </Form>
-      </Card>
+            {scoring.error && (
+              <SectionCard><Typography.Text type="danger">{scoring.error}</Typography.Text></SectionCard>
+            )}
 
-      {error && (
-        <Alert
-          type="error"
-          message={error}
-          showIcon
-          closable
-          onClose={() => setError(null)}
-          style={{ marginBottom: 16 }}
-        />
-      )}
+            {result && (
+              <>
+                <Row gutter={16}>
+                  <Col xs={12} md={6}><StatCard label="Назначений" value={result.totalAssignments} /></Col>
+                  <Col xs={12} md={6}>
+                    <StatCard label="Улучшено" value={result.improved} suffix={`/ ${result.totalAssignments}`} tone="success" />
+                  </Col>
+                  {result.validation && (
+                    <Col xs={12} md={6}>
+                      <StatCard
+                        label="WAPE прогноза"
+                        value={result.validation.forecastWape.toFixed(1)}
+                        suffix="%"
+                        tone={result.validation.forecastWape < 30 ? 'success' : result.validation.forecastWape < 50 ? 'warning' : 'error'}
+                        hint="ошибка прогноза (меньше — лучше)"
+                      />
+                    </Col>
+                  )}
+                  {result.validation && (
+                    <Col xs={12} md={6}>
+                      <StatCard
+                        label="Стабильность"
+                        value={result.validation.placementStabilityPct.toFixed(1)}
+                        suffix="%"
+                        tone={result.validation.placementStabilityPct >= 80 ? 'success' : 'default'}
+                      />
+                    </Col>
+                  )}
+                  {result.validation && (
+                    <Col xs={12} md={6}>
+                      <StatCard
+                        label="Эффективность маршрута"
+                        value={result.validation.routeEfficiencyGainPct.toFixed(1)}
+                        suffix="%"
+                        hint={`CI [${result.validation.routeEfficiencyCiLowPct.toFixed(1)}; ${result.validation.routeEfficiencyCiHighPct.toFixed(1)}]%`}
+                        tone={result.validation.routeEfficiencyCiLowPct > 0 ? 'success' : 'default'}
+                      />
+                    </Col>
+                  )}
+                </Row>
 
-      {loading && (
-        <div style={{ textAlign: 'center', padding: 48 }}>
-          <Spin size="large" />
-          <div style={{ marginTop: 12, color: '#8c8c8c', fontSize: 13 }}>
-            Running greedy assignment…
-          </div>
-        </div>
-      )}
+                <SectionCard
+                  title="Распределение прироста скора (Δ)"
+                  description="Сколько SKU выигрывают (зелёные) и проигрывают (красные) от пересортировки."
+                >
+                  <DeltaHistogram assignments={result.assignments} />
+                </SectionCard>
 
-      {result && !loading && (
-        <>
-          <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col span={6}>
-              <Card>
-                <Statistic title="Total Assignments" value={result.totalAssignments} />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card>
-                <Statistic
-                  title="Improved"
-                  value={result.improved}
-                  suffix={`/ ${result.totalAssignments}`}
-                  valueStyle={{ color: '#16A34A' }}
-                  prefix={<RiseOutlined />}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card>
-                <Statistic
-                  title="Improvement Rate"
-                  value={result.totalAssignments > 0
-                    ? Math.round((result.improved / result.totalAssignments) * 100)
-                    : 0}
-                  suffix="%"
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card>
-                <Statistic
-                  title="Weights (w1/w2/w3)"
-                  value={`${result.weightsUsed.w1}/${result.weightsUsed.w2}/${result.weightsUsed.w3}`}
-                  valueStyle={{ fontSize: 18 }}
-                />
-              </Card>
-            </Col>
-          </Row>
-
-          <Card title={`Assignments (${result.assignments.length})`}>
-            <Table<Assignment>
-              dataSource={result.assignments}
-              columns={COLUMNS}
-              rowKey="skuId"
-              size="small"
-              pagination={{ pageSize: 20, showSizeChanger: false }}
-              scroll={{ x: 600 }}
-            />
-          </Card>
-
-          <Space style={{ marginTop: 16 }}>
-            <Button
-              type="primary"
-              href={`/recommendations?warehouseId=${warehouseId}`}
-            >
-              View Recommendations
-            </Button>
+                <SectionCard
+                  title={`Назначения (${result.assignments.length})`}
+                  extra={
+                    <Space>
+                      <Button size="small" icon={<ReloadOutlined />} onClick={() => reload(result.jobId)}>
+                        Перезагрузить по jobId
+                      </Button>
+                      <Button size="small" type="primary" onClick={() => navigate('/recommendations')}>
+                        К рекомендациям
+                      </Button>
+                    </Space>
+                  }
+                >
+                  <Table<Assignment>
+                    dataSource={result.assignments}
+                    columns={columns}
+                    rowKey="skuId"
+                    size="small"
+                    pagination={{ pageSize: 20, showSizeChanger: false }}
+                    scroll={{ x: 700 }}
+                  />
+                </SectionCard>
+              </>
+            )}
           </Space>
-        </>
-      )}
-    </div>
+        )}
+      </RequireWarehouse>
+    </PageContainer>
   );
 }

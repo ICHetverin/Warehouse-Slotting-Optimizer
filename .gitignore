@@ -20,6 +20,8 @@ dist/
 dist-ssr/
 .vite/
 *.local
+# Stale compiled JS emitted next to TS sources — edit the .tsx/.ts, never the .js
+frontend/src/**/*.js
 
 # ── Environment & secrets ─────────────────────────────────────────────────────
 .env

@@ -88,7 +88,7 @@ class ScoringEngineTest {
     @DisplayName("computeVelocity single SKU gets velocity 1.0")
     void computeVelocity_singleSkuIsOne() {
         when(orderLineRepo.countOrdersPerSku(any(), any()))
-                .thenReturn(List.of(new Object[]{1L, 42L}));
+                .thenReturn(List.<Object[]>of(new Object[]{1L, 42L}));
         assertThat(engine.computeVelocity(1L, 90).get(1L)).isEqualTo(1.0);
     }
 
@@ -134,20 +134,25 @@ class ScoringEngineTest {
     void computeCopickMatrix_symmetricAndNormalized() {
         // SKU-A and SKU-B appear together 80 times; SKU-A and SKU-C 40 times
         when(orderLineRepo.findCopickPairsRaw(eq(1L), any()))
-                .thenReturn(List.of(
+                .thenReturn(Arrays.asList(
                         new Object[]{1L, 2L, 80},
                         new Object[]{1L, 3L, 40}
                 ));
 
         Map<Long, Map<Long, Double>> matrix = engine.computeCopickMatrix(1L, 90);
 
-        // Symmetric
-        assertThat(matrix.get(1L).get(2L)).isEqualTo(matrix.get(2L).get(1L));
-        assertThat(matrix.get(1L).get(3L)).isEqualTo(matrix.get(3L).get(1L));
+        // Connections exist both ways
+        assertThat(matrix).containsKey(1L).containsKey(2L).containsKey(3L);
+        assertThat(matrix.get(1L)).containsKey(2L).containsKey(3L);
+        assertThat(matrix.get(2L)).containsKey(1L);
+        assertThat(matrix.get(3L)).containsKey(1L);
 
         // SKU-A's strongest partner (SKU-B, 80 orders) → 1.0; SKU-C → 0.5
         assertThat(matrix.get(1L).get(2L)).isEqualTo(1.0);
         assertThat(matrix.get(1L).get(3L)).isCloseTo(0.5, within(1e-9));
+
+        // Per-SKU normalization: from SKU-3 perspective its only partner is 1.0
+        assertThat(matrix.get(3L).get(1L)).isEqualTo(1.0);
 
         // All values in [0, 1]
         matrix.values().forEach(row ->
@@ -173,7 +178,7 @@ class ScoringEngineTest {
                 velocity, Map.of(), distances,
                 Map.of(1L, skuA),
                 Map.of(slotNear.getId(), slotNear, slotFar.getId(), slotFar),
-                Map.of(), ScoringWeights.DEFAULT);
+                Map.of(), ScoringWeights.DEFAULT, Map.of(), Map.of(), Map.of());
 
         double nearScore = engine.scoreAssignment(1L, slotNear.getId(), ctx);
         double farScore  = engine.scoreAssignment(1L, slotFar.getId(),  ctx);
@@ -192,7 +197,8 @@ class ScoringEngineTest {
                 velocity, Map.of(), distances,
                 Map.of(2L, skuB),   // 5 kg > 3 kg capacity
                 Map.of(tinySlot.getId(), tinySlot, slotNear.getId(), slotNear),
-                Map.of(), new ScoringWeights(0.0, 0.0, 1.0)); // only fit matters
+                Map.of(), new ScoringWeights(0.0, 0.0, 1.0, 0.03, true),
+                Map.of(), Map.of(), Map.of()); // only fit matters
 
         // SKU-B (5 kg) should score 0 in tiny slot (3 kg capacity)
         double score = engine.scoreAssignment(2L, tinySlot.getId(), ctxFit);
@@ -258,7 +264,7 @@ class ScoringEngineTest {
     @DisplayName("high-velocity SKU is assigned near dock when all weights equal zero except w1")
     void runGreedyAssignment_highVelocityNearDock() {
         // Only velocity×distance matters (w1=1, w2=0, w3=0)
-        ScoringWeights w = new ScoringWeights(1.0, 0.0, 0.0);
+        ScoringWeights w = new ScoringWeights(1.0, 0.0, 0.0, 0.03, true);
 
         when(warehouseRepo.findById(1L)).thenReturn(Optional.of(warehouse));
         when(skuRepo.findByWarehouseId(1L)).thenReturn(List.of(skuA, skuB));

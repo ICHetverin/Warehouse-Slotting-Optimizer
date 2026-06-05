@@ -1,6 +1,8 @@
 package com.warehouse.optimizer.controller;
 
 import com.warehouse.optimizer.dto.*;
+import com.warehouse.optimizer.engine.AutoTuningEngine;
+import com.warehouse.optimizer.engine.SimulationEngine;
 import com.warehouse.optimizer.service.ScoringService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -10,7 +12,9 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ScoringController {
 
-    private final ScoringService scoringService;
+    private final ScoringService      scoringService;
+    private final SimulationEngine    simulationEngine;
+    private final AutoTuningEngine    autoTuningEngine;
 
     /**
      * POST /api/v1/scoring/run
@@ -42,11 +46,40 @@ public class ScoringController {
     }
 
     /**
+     * GET /api/v1/scoring/abcxyz/{warehouseId}
+     * Returns ABC/XYZ classification matrix for all SKUs in the warehouse.
+     */
+    @GetMapping("/abcxyz/{warehouseId}")
+    public ApiResponse<AbcXyzMatrixResponse> abcXyz(
+            @PathVariable Long warehouseId,
+            @RequestParam(defaultValue = "90") int days) {
+        return ApiResponse.of(scoringService.getAbcXyzMatrix(warehouseId, days));
+    }
+
+    /**
      * PATCH /api/v1/scoring/weights
      * Validates and echoes back the provided weights (client-side storage for MVP).
      */
     @PatchMapping("/weights")
     public ApiResponse<ScoringWeights> updateWeights(@RequestBody ScoringWeights weights) {
         return ApiResponse.of(weights);
+    }
+
+    /**
+     * POST /api/v1/scoring/simulate
+     * What-if simulation: replay historical orders under a proposed layout.
+     */
+    @PostMapping("/simulate")
+    public ApiResponse<SimulationResult> simulate(@RequestBody SimulationRequest req) {
+        return ApiResponse.of(simulationEngine.simulate(req));
+    }
+
+    /**
+     * POST /api/v1/scoring/tune
+     * Auto-tune scoring weights via grid search.
+     */
+    @PostMapping("/tune")
+    public ApiResponse<TuningResult> tune(@RequestBody TuningRequest req) {
+        return ApiResponse.of(autoTuningEngine.tune(req));
     }
 }

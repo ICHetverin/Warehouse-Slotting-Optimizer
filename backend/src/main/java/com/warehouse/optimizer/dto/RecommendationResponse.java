@@ -12,5 +12,6 @@ public record RecommendationResponse(
         double scoreDelta,
         String status,
         ExplanationDetail explanation,
-        Instant createdAt
+        Instant createdAt,
+        Instant decidedAt
 ) {}

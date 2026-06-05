@@ -1,283 +1,193 @@
-import { useState } from 'react';
-import {
-  Alert, Button, Card, Col, Divider, Form, InputNumber,
-  Row, Space, Statistic, Tag, Typography, Input,
-} from 'antd';
-import {
-  ArrowRightOutlined, EnvironmentOutlined, ThunderboltOutlined,
-} from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { App, Button, Col, InputNumber, Row, Select, Space, Tag, Typography } from 'antd';
+import { ArrowRightOutlined, EnvironmentOutlined, NodeIndexOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { PageContainer } from '../components/layout/PageContainer';
+import { PageHeader } from '../components/layout/PageHeader';
+import { SectionCard } from '../components/common/SectionCard';
+import { StatCard } from '../components/common/StatCard';
+import { EmptyState } from '../components/common/EmptyState';
+import { RequireWarehouse } from '../components/common/RequireWarehouse';
 import { api } from '../api/client';
-import type { RouteComparison } from '../types';
+import type { Route, RouteComparison, Sku } from '../types';
+import { tokens } from '../theme';
 
-const { Title, Paragraph, Text } = Typography;
-
-function DistanceBadge({ value, color }: { value: number; color?: string }) {
-  return (
-    <span style={{ fontVariantNumeric: 'tabular-nums', color: color ?? 'inherit' }}>
-      {value.toFixed(1)} m
-    </span>
-  );
-}
-
-function RoutePathViz({
-  path,
-  label,
-  color,
-}: {
-  path: number[];
-  label: string;
-  color: string;
-}) {
-  const preview = path.slice(0, 12);
-  const rest    = path.length - 12;
-
+function PathViz({ path, label, color }: { path: number[]; label: string; color: string }) {
+  const preview = path.slice(0, 16);
+  const rest = path.length - preview.length;
   return (
     <div>
-      <Text style={{ fontSize: 12, color: '#8c8c8c', display: 'block', marginBottom: 6 }}>
+      <Typography.Text style={{ fontSize: 12, color: tokens.textSecondary, display: 'block', marginBottom: 6 }}>
         {label}
-      </Text>
+      </Typography.Text>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
         {preview.map((id, i) => (
           <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Tag
-              color={id === 0 ? 'blue' : undefined}
-              style={{
-                margin: 0,
-                fontSize: 11,
-                borderColor: color,
-                color: id === 0 ? undefined : color,
-              }}
-            >
-              {id === 0 ? 'DOCK' : `#${id}`}
+            <Tag color={id === 0 ? 'blue' : undefined} style={{ margin: 0, fontSize: 11, borderColor: color, color: id === 0 ? undefined : color }}>
+              {id === 0 ? 'ДОК' : `#${id}`}
             </Tag>
-            {i < preview.length - 1 && (
-              <ArrowRightOutlined style={{ fontSize: 10, color: '#d1d5db' }} />
-            )}
+            {i < preview.length - 1 && <ArrowRightOutlined style={{ fontSize: 10, color: tokens.border }} />}
           </span>
         ))}
-        {rest > 0 && (
-          <Text style={{ fontSize: 11, color: '#8c8c8c' }}>+{rest} more</Text>
-        )}
+        {rest > 0 && <Typography.Text style={{ fontSize: 11, color: tokens.textTertiary }}>+{rest}</Typography.Text>}
       </div>
     </div>
   );
 }
 
-export function RoutesPage() {
-  const [warehouseId, setWarehouseId] = useState<number | null>(null);
-  const [skuInput, setSkuInput]       = useState('');
-  const [cartCap, setCartCap]         = useState<number>(50);
-  const [result, setResult]           = useState<RouteComparison | null>(null);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState<string | null>(null);
+function RouteTool({ warehouseId }: { warehouseId: number }) {
+  const { message } = App.useApp();
+  const [skus, setSkus] = useState<Sku[]>([]);
+  const [picked, setPicked] = useState<number[]>([]);
+  const [cartCap, setCartCap] = useState(50);
+  const [route, setRoute] = useState<Route | null>(null);
+  const [compare, setCompare] = useState<RouteComparison | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const parseSkuIds = (): number[] =>
-    skuInput
-      .split(/[\s,]+/)
-      .map(s => parseInt(s.trim(), 10))
-      .filter(n => !isNaN(n) && n > 0);
+  useEffect(() => {
+    let alive = true;
+    api.getWarehouseSkus(warehouseId)
+      .then(list => { if (alive) { setSkus(list); setPicked(list.slice(0, 6).map(s => s.id)); } })
+      .catch(() => {});
+    setRoute(null);
+    setCompare(null);
+    return () => { alive = false; };
+  }, [warehouseId]);
 
-  const runCompare = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
-    const skuIds = parseSkuIds();
-    if (skuIds.length === 0) { setError('Enter at least one SKU ID'); return; }
-
+  const optimize = async () => {
+    if (!picked.length) { message.warning('Выберите хотя бы один SKU'); return; }
     setLoading(true);
-    setError(null);
+    setCompare(null);
     try {
-      // Use current and proposed as the same list (demo: compare optimised vs sequential)
-      const optimRes = await api.optimizeRoute({ warehouseId, skuIds, cartCapacityKg: cartCap });
-      const currentSlots: Record<number, number> = {};
-      const proposedSlots: Record<number, number> = {};
-
-      // For demo: current = skuIds in order given, proposed = optimised order
-      skuIds.forEach((id, i) => { currentSlots[id] = i + 1; });
-      optimRes.data.orderedSlotIds.forEach((slotId, i) => {
-        const skuId = skuIds[i] ?? skuIds[0];
-        proposedSlots[skuId] = slotId;
-      });
-
-      const compareRes = await api.compareRoutes({
-        warehouseId,
-        skuIds,
-        currentSlots,
-        proposedSlots,
-        cartCapacityKg: cartCap,
-      });
-      setResult(compareRes.data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Route optimisation failed');
+      setRoute(await api.optimizeRoute({ warehouseId, skuIds: picked, cartCapacityKg: cartCap }));
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Не удалось построить маршрут');
     } finally {
       setLoading(false);
     }
   };
 
-  const runOptimize = async () => {
-    if (!warehouseId) { setError('Enter a warehouse ID'); return; }
-    const skuIds = parseSkuIds();
-    if (skuIds.length === 0) { setError('Enter at least one SKU ID'); return; }
-
+  const beforeAfter = async () => {
+    if (!picked.length) { message.warning('Выберите хотя бы один SKU'); return; }
     setLoading(true);
-    setError(null);
+    setRoute(null);
     try {
-      const res = await api.optimizeRoute({ warehouseId, skuIds, cartCapacityKg: cartCap });
-      // Show as a "comparison" with itself for layout consistency
-      setResult({
-        currentDistanceM:  res.data.totalDistanceM,
-        proposedDistanceM: res.data.totalDistanceM,
-        savingsM:          0,
-        savingsPct:        0,
-        currentRoute:      res.data,
-        proposedRoute:     res.data,
-      });
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Route optimisation failed');
+      const scoring = await api.runScoring({ warehouseId, velocityDays: 1200 });
+      const byId = new Map(scoring.assignments.map(a => [a.skuId, a]));
+      const currentSlots: Record<number, number> = {};
+      const proposedSlots: Record<number, number> = {};
+      const usable: number[] = [];
+      for (const id of picked) {
+        const a = byId.get(id);
+        if (a && a.fromSlotId != null) {
+          currentSlots[id] = a.fromSlotId;
+          proposedSlots[id] = a.toSlotId;
+          usable.push(id);
+        }
+      }
+      if (usable.length < 2) {
+        message.warning('Недостаточно размещённых SKU для сравнения. Запустите скоринг.');
+        return;
+      }
+      setCompare(await api.compareRoutes({
+        warehouseId, skuIds: usable, currentSlots, proposedSlots, cartCapacityKg: cartCap,
+      }));
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Сравнение не удалось');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 16px' }}>
-      <Title level={3} style={{ marginBottom: 4 }}>Route Optimizer</Title>
-      <Paragraph type="secondary" style={{ marginBottom: 32 }}>
-        Optimise pick routes using TSP (exact for ≤ 10 stops, nearest-neighbour + 2-opt for larger lists).
-      </Paragraph>
-
-      <Card title="Parameters" style={{ marginBottom: 24 }}>
-        <Form layout="vertical">
-          <Row gutter={24}>
-            <Col span={6}>
-              <Form.Item label="Warehouse ID" style={{ marginBottom: 0 }}>
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={1}
-                  placeholder="e.g. 1"
-                  value={warehouseId ?? undefined}
-                  onChange={v => setWarehouseId(v ?? null)}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="Cart Capacity (kg)" style={{ marginBottom: 0 }}>
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={0}
-                  placeholder="0 = unlimited"
-                  value={cartCap}
-                  onChange={v => setCartCap(v ?? 0)}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="SKU IDs (comma or space separated)" style={{ marginBottom: 0 }}>
-                <Input
-                  placeholder="e.g. 1, 2, 5, 12, 30"
-                  value={skuInput}
-                  onChange={e => setSkuInput(e.target.value)}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          <div style={{ marginTop: 16 }}>
-            <Space>
-              <Button
-                type="primary"
-                icon={<ThunderboltOutlined />}
-                loading={loading}
-                onClick={runOptimize}
-              >
-                Optimize Route
+    <Space orientation="vertical" size={20} style={{ width: '100%' }}>
+      <SectionCard title="Список отбора" description="Выберите товары для подбора. Маршрут начинается и заканчивается у дока.">
+        <Row gutter={[16, 16]} align="bottom">
+          <Col xs={24} md={16}>
+            <Typography.Text style={{ fontSize: 13 }}>Товары (SKU)</Typography.Text>
+            <Select
+              mode="multiple"
+              style={{ width: '100%', marginTop: 6 }}
+              placeholder="Выберите SKU из каталога"
+              value={picked}
+              onChange={setPicked}
+              maxTagCount="responsive"
+              optionFilterProp="label"
+              options={skus.map(s => ({ value: s.id, label: `${s.code} · ${s.name}` }))}
+            />
+          </Col>
+          <Col xs={12} md={4}>
+            <Typography.Text style={{ fontSize: 13 }}>Тележка, кг</Typography.Text>
+            <InputNumber min={0} value={cartCap} onChange={v => setCartCap(v ?? 0)} style={{ width: '100%', marginTop: 6 }} />
+          </Col>
+          <Col xs={12} md={4}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
+              <Button type="primary" icon={<ThunderboltOutlined />} loading={loading} onClick={optimize} block>
+                Маршрут
               </Button>
-              <Button
-                icon={<EnvironmentOutlined />}
-                loading={loading}
-                onClick={runCompare}
-              >
-                Compare Before / After
+              <Button icon={<EnvironmentOutlined />} loading={loading} onClick={beforeAfter} block>
+                До / после
               </Button>
             </Space>
-          </div>
-        </Form>
-      </Card>
+          </Col>
+        </Row>
+      </SectionCard>
 
-      {error && (
-        <Alert
-          type="error"
-          message={error}
-          showIcon
-          closable
-          onClose={() => setError(null)}
-          style={{ marginBottom: 16 }}
-        />
-      )}
-
-      {result && !loading && (
+      {route && (
         <>
-          <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col span={6}>
-              <Card>
-                <Statistic
-                  title="Current Distance"
-                  value={result.currentDistanceM.toFixed(1)}
-                  suffix="m"
-                  valueStyle={{ color: '#DC2626' }}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card>
-                <Statistic
-                  title="Proposed Distance"
-                  value={result.proposedDistanceM.toFixed(1)}
-                  suffix="m"
-                  valueStyle={{ color: '#16A34A' }}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card>
-                <Statistic
-                  title="Savings"
-                  value={result.savingsM.toFixed(1)}
-                  suffix="m"
-                  prefix={result.savingsM > 0 ? '↓' : ''}
-                  valueStyle={{ color: result.savingsM > 0 ? '#16A34A' : '#595959' }}
-                />
-              </Card>
-            </Col>
-            <Col span={6}>
-              <Card>
-                <Statistic
-                  title="Improvement"
-                  value={result.savingsPct.toFixed(1)}
-                  suffix="%"
-                  valueStyle={{ color: result.savingsPct > 0 ? '#16A34A' : '#595959' }}
-                />
-              </Card>
-            </Col>
+          <Row gutter={16}>
+            <Col xs={12} md={8}><StatCard label="Дистанция" value={route.totalDistanceM.toFixed(1)} suffix="м" tone="primary" /></Col>
+            <Col xs={12} md={8}><StatCard label="Рейсов" value={route.tripCount} /></Col>
+            <Col xs={12} md={8}><StatCard label="Остановок" value={route.orderedSlotIds.length} /></Col>
           </Row>
-
-          <Card title="Route Detail">
-            <Row gutter={32}>
-              <Col span={12}>
-                <RoutePathViz
-                  path={result.currentRoute.fullPath}
-                  label={`Current Route — ${result.currentDistanceM.toFixed(1)} m, ${result.currentRoute.tripCount} trip(s)`}
-                  color="#DC2626"
-                />
-              </Col>
-              <Col span={12}>
-                <RoutePathViz
-                  path={result.proposedRoute.fullPath}
-                  label={`Proposed Route — ${result.proposedDistanceM.toFixed(1)} m, ${result.proposedRoute.tripCount} trip(s)`}
-                  color="#16A34A"
-                />
-              </Col>
-            </Row>
-          </Card>
+          <SectionCard title="Оптимальный маршрут">
+            <PathViz path={route.fullPath} label={`${route.totalDistanceM.toFixed(1)} м · ${route.tripCount} рейс(ов)`} color={tokens.success} />
+          </SectionCard>
         </>
       )}
-    </div>
+
+      {compare && (
+        <>
+          <Row gutter={16}>
+            <Col xs={12} md={6}><StatCard label="Текущий" value={compare.currentDistanceM.toFixed(1)} suffix="м" tone="error" /></Col>
+            <Col xs={12} md={6}><StatCard label="Предложенный" value={compare.proposedDistanceM.toFixed(1)} suffix="м" tone="success" /></Col>
+            <Col xs={12} md={6}><StatCard label="Экономия" value={compare.savingsM.toFixed(1)} suffix="м" tone="success" /></Col>
+            <Col xs={12} md={6}><StatCard label="Улучшение" value={compare.savingsPct.toFixed(1)} suffix="%" tone={compare.savingsPct > 0 ? 'success' : 'default'} /></Col>
+          </Row>
+          <SectionCard title="Маршрут до и после перестановки">
+            <Row gutter={[24, 16]}>
+              <Col xs={24} md={12}>
+                <PathViz path={compare.currentRoute.fullPath} label={`Текущий — ${compare.currentDistanceM.toFixed(1)} м`} color={tokens.error} />
+              </Col>
+              <Col xs={24} md={12}>
+                <PathViz path={compare.proposedRoute.fullPath} label={`Предложенный — ${compare.proposedDistanceM.toFixed(1)} м`} color={tokens.success} />
+              </Col>
+            </Row>
+          </SectionCard>
+        </>
+      )}
+
+      {!route && !compare && !loading && (
+        <SectionCard>
+          <EmptyState
+            icon={<NodeIndexOutlined />}
+            title="Постройте маршрут"
+            description="Выберите SKU и нажмите «Маршрут» для оптимального обхода, либо «До / после» — чтобы увидеть экономию от рекомендованной перестановки."
+          />
+        </SectionCard>
+      )}
+    </Space>
+  );
+}
+
+export function RoutesPage() {
+  return (
+    <PageContainer>
+      <PageHeader
+        icon={<NodeIndexOutlined />}
+        title="Маршрут пикера"
+        description="Оптимизация обхода по списку отбора (TSP: точный для ≤10 остановок, nearest-neighbour + 2-opt для больших). Сравнение текущего и предложенного размещения."
+      />
+      <RequireWarehouse>{warehouseId => <RouteTool warehouseId={warehouseId} />}</RequireWarehouse>
+    </PageContainer>
   );
 }

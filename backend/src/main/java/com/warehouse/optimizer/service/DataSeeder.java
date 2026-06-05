@@ -51,8 +51,9 @@ public class DataSeeder implements CommandLineRunner {
 
         log.info("Seeding demo data...");
         Warehouse wh = seedWarehouse();
-        List<Sku> skus   = seedSkus(wh);
-        seedSlots(wh);
+        List<Sku>  skus  = seedSkus(wh);
+        List<Slot> slots = seedSlots(wh);
+        assignSkusToSlots(skus, slots);
         seedOrders(wh, skus);
         log.info("Seed complete: warehouse={}", wh.getId());
     }
@@ -87,7 +88,7 @@ public class DataSeeder implements CommandLineRunner {
         return skuRepo.saveAll(skus);
     }
 
-    private void seedSlots(Warehouse wh) {
+    private List<Slot> seedSlots(Warehouse wh) {
         char[] zoneChars = {'A', 'B', 'C', 'D', 'E'};
         List<Slot> slots = new ArrayList<>(SLOT_COUNT);
         int slotsPerZone = SLOT_COUNT / ZONES;
@@ -101,6 +102,7 @@ public class DataSeeder implements CommandLineRunner {
                 int col = s % wh.getColumns();
                 int level = (s % 3) + 1;
 
+                BigDecimal capacity = new BigDecimal(level == 1 ? "50.00" : level == 2 ? "30.00" : "15.00");
                 slots.add(Slot.builder()
                         .warehouse(wh)
                         .label("%s%d-%02d".formatted(zone, row, col))
@@ -108,12 +110,31 @@ public class DataSeeder implements CommandLineRunner {
                         .col(col)
                         .level(level)
                         .zone(zone)
-                        .capacityKg(new BigDecimal(level == 1 ? "50.00" : level == 2 ? "30.00" : "15.00"))
+                        .capacityKg(capacity)
+                        .volumeM3(capacity.divide(new BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP))
                         .build());
             }
         }
 
+        return slotRepo.saveAll(slots);
+    }
+
+    /**
+     * Randomly assigns up to min(SKU_COUNT, SLOT_COUNT) SKUs into slots.
+     * This gives the warehouse a realistic initial layout so that scoring,
+     * routing, and simulation have meaningful data to work with.
+     */
+    private void assignSkusToSlots(List<Sku> skus, List<Slot> slots) {
+        Random rng = new Random(99);
+        List<Sku> skuPool = new ArrayList<>(skus);
+        Collections.shuffle(skuPool, rng);
+
+        int limit = Math.min(skuPool.size(), slots.size());
+        for (int i = 0; i < limit; i++) {
+            slots.get(i).setCurrentSku(skuPool.get(i));
+        }
         slotRepo.saveAll(slots);
+        log.info("Assigned {} SKUs to slots", limit);
     }
 
     private void seedOrders(Warehouse wh, List<Sku> skus) {
