@@ -43,25 +43,62 @@ public class ValidationEngine {
     // Public API
     // ──────────────────────────────────────────────────────────────────────────
 
+    /** Route-efficiency evaluation: aggregate gain plus per-order distances for bootstrap. */
+    private record RouteEval(double gainPct, double[] cur, double[] prop) {}
+
+    private static final int ROUTE_WINDOW_DAYS = 1200;
+
     @Transactional(readOnly = true)
     public ScoringValidation validate(Long warehouseId, List<Assignment> assignments, ScoringContext ctx) {
         log.info("Starting validation for warehouse={}", warehouseId);
 
-        double mape = validateForecastAccuracy(warehouseId, 90, ctx);
+        double mape = validateForecastAccuracy(warehouseId, ROUTE_WINDOW_DAYS, ctx);
+        double wape = validateForecastWape(warehouseId, ROUTE_WINDOW_DAYS);
         double stability = validatePlacementStability(assignments, ctx);
-        double routeGain = validateRouteEfficiency(warehouseId, assignments);
+        RouteEval route = validateRouteEfficiency(warehouseId, assignments, ROUTE_SAMPLE_SIZE);
+
+        // Percentile bootstrap CI on the *aggregate* route-efficiency gain (resample orders),
+        // so the interval brackets the headline gain rather than a per-order mean.
+        double ciLow = route.gainPct(), ciHigh = route.gainPct();
+        int m = route.cur().length;
+        if (m >= 2) {
+            Random rng = new Random(42);
+            int b = 2000;
+            double[] ratios = new double[b];
+            for (int k = 0; k < b; k++) {
+                double sc = 0, sp = 0;
+                for (int j = 0; j < m; j++) {
+                    int idx = rng.nextInt(m);
+                    sc += route.cur()[idx];
+                    sp += route.prop()[idx];
+                }
+                ratios[k] = sc > 0 ? (sc - sp) / sc * 100.0 : 0.0;
+            }
+            Arrays.sort(ratios);
+            ciLow = Statistics.percentile(ratios, 0.025);
+            ciHigh = Statistics.percentile(ratios, 0.975);
+        }
 
         Map<String, Double> detail = new HashMap<>();
         detail.put("aClassCount", ctx.abcBoost().values().stream().filter(v -> v >= 1.2).count() * 1.0);
         detail.put("xClassCount", ctx.xyzBoost().values().stream().filter(v -> v >= 1.0).count() * 1.0);
         detail.put("avgScoreDelta", assignments.stream().mapToDouble(Assignment::scoreDelta).average().orElse(0.0));
+        detail.put("forecastMape", round1(mape));
+        detail.put("ordersEvaluated", (double) route.cur().length);
 
         return new ScoringValidation(
-                Math.round(mape * 10) / 10.0,
-                Math.round(stability * 10) / 10.0,
-                Math.round(routeGain * 10) / 10.0,
+                round1(mape),
+                round1(wape),
+                round1(stability),
+                round1(route.gainPct()),
+                round1(ciLow),
+                round1(ciHigh),
                 detail
         );
+    }
+
+    private static double round1(double v) {
+        return Math.round(v * 10) / 10.0;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -74,7 +111,7 @@ public class ValidationEngine {
      */
     @Transactional(readOnly = true)
     public double validateForecastAccuracy(Long warehouseId, int days, ScoringContext ctx) {
-        Instant since = Instant.now().minus(days, ChronoUnit.DAYS);
+        Instant since = anchoredSince(warehouseId, days);
         List<Object[]> rows = orderLineRepo.findDailyOrderCounts(warehouseId, since);
         if (rows.isEmpty()) return 0.0;
 
@@ -91,6 +128,13 @@ public class ValidationEngine {
         if (totalDays <= 1) return 0.0;
 
         LocalDate cutoff = minDate.plusDays((long) (totalDays * 0.7));
+
+        // Scale the train-period total to the test horizon so predicted and actual
+        // are on the same time span (otherwise MAPE is systematically inflated).
+        long trainDays = ChronoUnit.DAYS.between(minDate, cutoff) + 1;
+        long testDays  = ChronoUnit.DAYS.between(cutoff, maxDate);
+        if (trainDays <= 0 || testDays <= 0) return 0.0;
+        double scale = testDays / (double) trainDays;
 
         Map<Long, Double> trainCounts = new HashMap<>();
         Map<Long, Double> testCounts  = new HashMap<>();
@@ -117,7 +161,7 @@ public class ValidationEngine {
         double totalMape = 0.0;
         int count = 0;
         for (Long skuId : aClassSkus) {
-            double predicted = trainCounts.getOrDefault(skuId, 0.0);
+            double predicted = trainCounts.getOrDefault(skuId, 0.0) * scale;
             double actual = testCounts.getOrDefault(skuId, 0.0);
             if (actual > 0) {
                 double ape = Math.abs(actual - predicted) / actual;
@@ -126,6 +170,56 @@ public class ValidationEngine {
             }
         }
         return count > 0 ? (totalMape / count) * 100.0 : 0.0;
+    }
+
+    /**
+     * WAPE (Weighted Absolute Percentage Error) = Σ|actual−predicted| / Σactual over
+     * all SKUs. Unlike MAPE it is defined when some actuals are zero and is volume-
+     * weighted, so it does not blow up on rare/intermittent demand — the preferred
+     * accuracy metric for multi-SKU forecasts.
+     */
+    @Transactional(readOnly = true)
+    public double validateForecastWape(Long warehouseId, int days) {
+        Instant since = anchoredSince(warehouseId, days);
+        List<Object[]> rows = orderLineRepo.findDailyOrderCounts(warehouseId, since);
+        if (rows.isEmpty()) return 0.0;
+
+        LocalDate minDate = rows.stream().map(r -> ((Date) r[1]).toLocalDate())
+                .min(Comparator.naturalOrder()).orElse(LocalDate.now());
+        LocalDate maxDate = rows.stream().map(r -> ((Date) r[1]).toLocalDate())
+                .max(Comparator.naturalOrder()).orElse(LocalDate.now());
+        long totalDays = ChronoUnit.DAYS.between(minDate, maxDate) + 1;
+        if (totalDays <= 1) return 0.0;
+
+        // Predict each SKU's test-period demand by scaling its train rate to the test span.
+        LocalDate cutoff = minDate.plusDays((long) (totalDays * 0.7));
+        long trainDays = ChronoUnit.DAYS.between(minDate, cutoff) + 1;
+        long testDays = ChronoUnit.DAYS.between(cutoff, maxDate);
+        if (trainDays <= 0 || testDays <= 0) return 0.0;
+        double scale = testDays / (double) trainDays;
+
+        Map<Long, Double> train = new HashMap<>();
+        Map<Long, Double> test  = new HashMap<>();
+        for (Object[] row : rows) {
+            Long skuId = ((Number) row[0]).longValue();
+            LocalDate d = ((Date) row[1]).toLocalDate();
+            double cnt = ((Number) row[2]).doubleValue();
+            if (!d.isAfter(cutoff)) train.merge(skuId, cnt, Double::sum);
+            else test.merge(skuId, cnt, Double::sum);
+        }
+
+        Set<Long> skus = new HashSet<>();
+        skus.addAll(train.keySet());
+        skus.addAll(test.keySet());
+
+        double absErr = 0.0, totalActual = 0.0;
+        for (Long skuId : skus) {
+            double predicted = train.getOrDefault(skuId, 0.0) * scale;
+            double actual = test.getOrDefault(skuId, 0.0);
+            absErr += Math.abs(actual - predicted);
+            totalActual += actual;
+        }
+        return totalActual > 0 ? absErr / totalActual * 100.0 : 0.0;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -165,8 +259,16 @@ public class ValidationEngine {
      * Samples {@code ROUTE_SAMPLE_SIZE} historical orders and compares
      * pick route distances under current vs proposed slot assignments.
      */
+    /**
+     * Aggregate route-efficiency gain only (no bootstrap / forecast) — a cheap metric
+     * for the auto-tuning grid search, which calls this once per weight combination.
+     */
     @Transactional(readOnly = true)
-    public double validateRouteEfficiency(Long warehouseId, List<Assignment> assignments) {
+    public double routeEfficiencyGain(Long warehouseId, List<Assignment> assignments, int sampleSize) {
+        return validateRouteEfficiency(warehouseId, assignments, sampleSize).gainPct();
+    }
+
+    private RouteEval validateRouteEfficiency(Long warehouseId, List<Assignment> assignments, int sampleSize) {
         Warehouse warehouse = warehouseRepo.findById(warehouseId)
                 .orElseThrow(() -> new ScoringException("Warehouse not found: " + warehouseId));
         List<Slot> slots = slotRepo.findByWarehouseId(warehouseId);
@@ -187,17 +289,19 @@ public class ValidationEngine {
                         (a, b) -> a));
 
         List<Order> orders = orderRepo.findByWarehouseId(warehouseId);
-        if (orders.isEmpty()) return 0.0;
+        if (orders.isEmpty()) return new RouteEval(0.0, new double[0], new double[0]);
 
-        if (orders.size() > ROUTE_SAMPLE_SIZE) {
+        if (orders.size() > sampleSize) {
             orders = new ArrayList<>(orders);
             Collections.shuffle(orders, new Random(42));
-            orders = orders.subList(0, ROUTE_SAMPLE_SIZE);
+            orders = orders.subList(0, sampleSize);
         }
 
         double totalCurrent = 0.0;
         double totalProposed = 0.0;
         int validOrders = 0;
+        List<Double> curList = new ArrayList<>();
+        List<Double> propList = new ArrayList<>();
 
         for (Order order : orders) {
             List<OrderLine> lines = orderLineRepo.findByOrderId(order.getId());
@@ -234,12 +338,25 @@ public class ValidationEngine {
             var proposedRoute = routingEngine.optimizePickRoute(
                     graph, RoutingEngine.DOCK_NODE_ID, proposedSlots, proposedWeights, 0.0);
 
-            totalCurrent += currentRoute.totalDistanceM();
-            totalProposed += proposedRoute.totalDistanceM();
+            double cur = currentRoute.totalDistanceM();
+            double prop = proposedRoute.totalDistanceM();
+            totalCurrent += cur;
+            totalProposed += prop;
             validOrders++;
+            if (cur > 0) { curList.add(cur); propList.add(prop); }
         }
 
-        if (validOrders == 0 || totalCurrent == 0) return 0.0;
-        return (totalCurrent - totalProposed) / totalCurrent * 100.0;
+        if (validOrders == 0 || totalCurrent == 0) return new RouteEval(0.0, new double[0], new double[0]);
+        double gain = (totalCurrent - totalProposed) / totalCurrent * 100.0;
+        return new RouteEval(gain,
+                curList.stream().mapToDouble(Double::doubleValue).toArray(),
+                propList.stream().mapToDouble(Double::doubleValue).toArray());
+    }
+
+    /** Window start anchored to the dataset's latest order date (not wall-clock now()). */
+    private Instant anchoredSince(Long warehouseId, int days) {
+        Instant maxTs = orderLineRepo.findMaxOrderTimestamp(warehouseId);
+        Instant base = (maxTs != null && maxTs.isBefore(Instant.now())) ? maxTs : Instant.now();
+        return base.minus(days, ChronoUnit.DAYS);
     }
 }

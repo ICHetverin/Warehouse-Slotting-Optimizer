@@ -62,6 +62,10 @@ public class Recommendation {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** When the recommendation was accepted or rejected (null while pending). */
+    @Column(name = "decided_at")
+    private Instant decidedAt;
+
     @PrePersist
     private void prePersist() {
         if (createdAt == null) createdAt = Instant.now();

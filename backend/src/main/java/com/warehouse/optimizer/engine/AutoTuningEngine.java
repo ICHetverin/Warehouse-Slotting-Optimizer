@@ -1,7 +1,6 @@
 package com.warehouse.optimizer.engine;
 
 import com.warehouse.optimizer.dto.Assignment;
-import com.warehouse.optimizer.dto.ScoringValidation;
 import com.warehouse.optimizer.dto.ScoringWeights;
 import com.warehouse.optimizer.dto.TuningRequest;
 import com.warehouse.optimizer.dto.TuningResult;
@@ -113,37 +112,40 @@ public class AutoTuningEngine {
         return list;
     }
 
-    /** Runs greedy assignment + validation and extracts the requested metric. */
+    /** Smaller route sample during tuning — the grid search runs this many times. */
+    private static final int TUNE_ROUTE_SAMPLE = 20;
+
+    /**
+     * Runs greedy assignment and extracts the requested metric using a LIGHTWEIGHT
+     * evaluation (no bootstrap CI / forecast WAPE and a smaller route sample), since
+     * the grid search calls this once per weight combination. The full validation runs
+     * only once on the final result elsewhere.
+     */
     private double evaluate(Long warehouseId, ScoringWeights weights, String metric, int days) {
         List<Assignment> assignments = scoringEngine.runGreedyAssignment(warehouseId, weights);
 
-        Map<Long, Double> velocity   = scoringEngine.computeEwVelocity(warehouseId, days, weights.decayLambda());
-        Map<Long, Map<Long, Double>> copick = scoringEngine.computeCopickMatrix(warehouseId, days);
-        Map<Long, Double> distances  = scoringEngine.computeSlotDistances(warehouseId);
-        Map<Long, Double> rawCounts  = scoringEngine.computeRawCounts(warehouseId, days);
-        Map<Long, Double> abcBoost   = weights.useAbcXyz() ? scoringEngine.computeAbcClassification(rawCounts) : Collections.emptyMap();
-        Map<Long, Double> xyzBoost   = weights.useAbcXyz() ? scoringEngine.computeXyzStability(warehouseId, days) : Collections.emptyMap();
+        return switch (metric) {
+            case "stability", "placement_stability" ->
+                    validationEngine.validatePlacementStability(assignments, stabilityContext(warehouseId, weights, days, assignments));
+            case "composite", "combined" -> {
+                double route = validationEngine.routeEfficiencyGain(warehouseId, assignments, TUNE_ROUTE_SAMPLE);
+                double stability = validationEngine.validatePlacementStability(
+                        assignments, stabilityContext(warehouseId, weights, days, assignments));
+                yield route * 0.6 + stability * 0.3;
+            }
+            default -> validationEngine.routeEfficiencyGain(warehouseId, assignments, TUNE_ROUTE_SAMPLE);
+        };
+    }
 
-        Map<Long, com.warehouse.optimizer.model.Sku> skuMap = Collections.emptyMap();
-        Map<Long, com.warehouse.optimizer.model.Slot> slotMap = Collections.emptyMap();
+    /** Minimal context carrying only the XYZ boost needed by the stability metric. */
+    private ScoringContext stabilityContext(Long warehouseId, ScoringWeights weights, int days, List<Assignment> assignments) {
+        Map<Long, Double> xyzBoost = weights.useAbcXyz()
+                ? scoringEngine.computeXyzStability(warehouseId, days) : Collections.emptyMap();
         Map<Long, Long> assignmentMap = assignments.stream()
                 .collect(java.util.stream.Collectors.toMap(Assignment::skuId, Assignment::toSlotId));
-
-        ScoringContext ctx = new ScoringContext(
-                velocity, copick, distances, skuMap, slotMap, assignmentMap,
-                weights, abcBoost, xyzBoost, Collections.emptyMap());
-
-        ScoringValidation validation = validationEngine.validate(warehouseId, assignments, ctx);
-
-        return switch (metric) {
-            case "route", "route_efficiency", "routeefficiency", "route_efficiency_gain",
-                 "efficiency", "distance" -> validation.routeEfficiencyGainPct();
-            case "stability", "placement_stability" -> validation.placementStabilityPct();
-            case "composite", "combined" ->
-                    validation.routeEfficiencyGainPct() * 0.6
-                  + validation.placementStabilityPct() * 0.3
-                  - validation.forecastMape() * 0.1;
-            default -> validation.routeEfficiencyGainPct();
-        };
+        return new ScoringContext(
+                Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(),
+                Collections.emptyMap(), Collections.emptyMap(), assignmentMap,
+                weights, Collections.emptyMap(), xyzBoost, Collections.emptyMap());
     }
 }

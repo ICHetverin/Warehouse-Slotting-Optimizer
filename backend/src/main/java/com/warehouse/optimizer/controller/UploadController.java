@@ -1,13 +1,16 @@
 package com.warehouse.optimizer.controller;
 
 import com.warehouse.optimizer.dto.ApiResponse;
+import com.warehouse.optimizer.dto.DatasetInfo;
 import com.warehouse.optimizer.model.StorageStrategy;
+import com.warehouse.optimizer.service.ExampleDatasetImporter;
 import com.warehouse.optimizer.service.MendeleyDatasetImporter;
 import com.warehouse.optimizer.service.UploadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -17,6 +20,7 @@ public class UploadController {
 
     private final UploadService uploadService;
     private final MendeleyDatasetImporter mendeleyImporter;
+    private final ExampleDatasetImporter exampleImporter;
 
     @PostMapping("/orders")
     public ApiResponse<Map<String, Integer>> uploadOrders(
@@ -46,5 +50,19 @@ public class UploadController {
     public ApiResponse<MendeleyDatasetImporter.ImportResult> importMendeley(
             @RequestParam(defaultValue = "RANDOM") StorageStrategy strategy) {
         return ApiResponse.of(mendeleyImporter.importDataset(strategy));
+    }
+
+    /** GET /api/v1/upload/examples — gallery of ready-to-load example warehouses. */
+    @GetMapping("/examples")
+    public ApiResponse<List<DatasetInfo>> listExamples() {
+        return ApiResponse.of(exampleImporter.catalog());
+    }
+
+    /** POST /api/v1/upload/examples/{key} — load one example (optional strategy for Mendeley). */
+    @PostMapping("/examples/{key}")
+    public ApiResponse<MendeleyDatasetImporter.ImportResult> importExample(
+            @PathVariable String key,
+            @RequestParam(required = false) StorageStrategy strategy) {
+        return ApiResponse.of(exampleImporter.importExample(key, strategy));
     }
 }

@@ -23,7 +23,16 @@ public class RecommendationController {
         ScoringConstraints constraints = req.constraints() != null
                 ? req.constraints()
                 : ScoringConstraints.DEFAULT;
-        return ApiResponse.of(recommendationService.generate(req.warehouseId(), weights, constraints));
+        int days = req.velocityDays() != null ? req.velocityDays() : 90;
+        return ApiResponse.of(recommendationService.generate(req.warehouseId(), weights, constraints, days));
+    }
+
+    /** POST /api/v1/recommendations/{warehouseId}/accept-all — apply all matching recommendations. */
+    @PostMapping("/{warehouseId}/accept-all")
+    public ApiResponse<BulkAcceptResult> acceptAll(
+            @PathVariable Long warehouseId,
+            @RequestParam(defaultValue = "PENDING") String status) {
+        return ApiResponse.of(recommendationService.acceptAll(warehouseId, status));
     }
 
     /** GET /api/v1/recommendations/{warehouseId} — list with optional filters. */

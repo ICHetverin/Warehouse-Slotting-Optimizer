@@ -45,6 +45,15 @@ public class ExplainerEngine {
 
     // ──────────────────────────────────────────────────────────────────────────
 
+    /** Fraction of SKUs (0..100) whose velocity is ≤ this SKU's — a demand percentile. */
+    private double velocityPercentile(Long skuId, ScoringContext ctx) {
+        Map<Long, Double> v = ctx.velocity();
+        if (v.isEmpty()) return 0.0;
+        double mine = v.getOrDefault(skuId, 0.0);
+        long le = v.values().stream().filter(x -> x <= mine).count();
+        return le * 100.0 / v.size();
+    }
+
     private List<ExplanationReason> buildReasons(
             Sku sku, Slot fromSlot, Slot toSlot, ScoringContext ctx) {
 
@@ -69,11 +78,15 @@ public class ExplainerEngine {
             double abcBoost    = ctx.abcBoost().getOrDefault(sku.getId(), 1.0);
             double xyzBoost    = ctx.xyzBoost().getOrDefault(sku.getId(), 1.0);
 
+            double percentile = velocityPercentile(sku.getId(), ctx);
+            double wilson     = ctx.velocityWilson().getOrDefault(sku.getId(),
+                                    ctx.velocity().getOrDefault(sku.getId(), 0.0));
+
             StringBuilder sb = new StringBuilder();
-            sb.append("SKU velocity %.0f%% (adjusted %.2f×) benefits from closer slot (proximity %.2f)"
-                    .formatted(velocityPct, abcBoost * xyzBoost, distScore));
+            sb.append("Высокий спрос: топ %.0f%% по velocity (Wilson-устойчивая %.2f, ABC/XYZ %.2f×) — выгоднее в ячейке ближе к доку (близость %.2f)"
+                    .formatted(100 - percentile, wilson, abcBoost * xyzBoost, distScore));
             if (ergoScore < 1.0) {
-                sb.append(" with ergonomic penalty %.0f%%".formatted(ergoScore * 100));
+                sb.append(", эргономический штраф %.0f%%".formatted(ergoScore * 100));
             }
 
             reasons.add(new ExplanationReason(
@@ -81,13 +94,15 @@ public class ExplainerEngine {
                     sb.toString(),
                     velTo,
                     Map.of(
-                            "velocityPct",     Math.round(velocityPct * 10) / 10.0,
-                            "abcBoost",        Math.round(abcBoost * 100) / 100.0,
-                            "xyzBoost",        Math.round(xyzBoost * 100) / 100.0,
-                            "fromProximity",   fromSlot != null
+                            "velocityPct",        Math.round(velocityPct * 10) / 10.0,
+                            "velocityPercentile", Math.round((100 - percentile) * 10) / 10.0,
+                            "wilsonVelocity",     Math.round(wilson * 1000) / 1000.0,
+                            "abcBoost",           Math.round(abcBoost * 100) / 100.0,
+                            "xyzBoost",           Math.round(xyzBoost * 100) / 100.0,
+                            "fromProximity",      fromSlot != null
                                     ? ctx.slotDistances().getOrDefault(fromSlot.getId(), 0.0) : 0.0,
-                            "toProximity",     distScore,
-                            "ergonomics",      Math.round(ergoScore * 100) / 100.0
+                            "toProximity",        distScore,
+                            "ergonomics",         Math.round(ergoScore * 100) / 100.0
                     )
             ));
         }
@@ -115,17 +130,20 @@ public class ExplainerEngine {
                                     ? Math.abs(toSlot.getRow() - partnerSlot.getRow())
                                       + Math.abs(toSlot.getCol() - partnerSlot.getCol())
                                     : -1;
+                            double lift = ctx.copickLift().getOrDefault(sku.getId(), Map.of())
+                                    .getOrDefault(best.getKey(), 0.0);
 
                             reasons.add(new ExplanationReason(
                                     "copick",
-                                    "Co-picked with %s (affinity %.0f%%) — new slot is %d step(s) away, centroid bias %.2f"
-                                            .formatted(partnerCode, best.getValue() * 100, distance, centroidTo),
+                                    "Часто заказывается с %s (lift ×%.1f, аффинность %.0f%%) — новая ячейка в %d шаг(ах), смещение к центру %.2f"
+                                            .formatted(partnerCode, lift, best.getValue() * 100, distance, centroidTo),
                                     best.getValue(),
                                     Map.of(
-                                            "partnerSku",       partnerCode,
-                                            "affinityPct",      Math.round(best.getValue() * 1000) / 10.0,
+                                            "partnerSku",        partnerCode,
+                                            "lift",              Math.round(lift * 100) / 100.0,
+                                            "affinityPct",       Math.round(best.getValue() * 1000) / 10.0,
                                             "distanceToPartner", distance,
-                                            "centroidBias",     Math.round(centroidTo * 1000) / 1000.0
+                                            "centroidBias",      Math.round(centroidTo * 1000) / 1000.0
                                     )
                             ));
                         });
@@ -163,16 +181,42 @@ public class ExplainerEngine {
             ));
         }
 
+        // Guarantee at least two substantive reasons: add demand/proximity context.
+        if (reasons.size() < 2) {
+            double toDist = ctx.slotDistances().getOrDefault(toSlot.getId(), 0.0);
+            String abc = abcLabel(ctx.abcBoost().getOrDefault(sku.getId(), 1.0));
+            String xyz = xyzLabel(ctx.xyzBoost().getOrDefault(sku.getId(), 1.0));
+            reasons.add(new ExplanationReason(
+                    "distance",
+                    "Класс спроса %s/%s, ближе к доку (близость %.2f) — короче маршрут отбора"
+                            .formatted(abc, xyz, toDist),
+                    toDist,
+                    Map.of(
+                            "toProximity", Math.round(toDist * 1000) / 1000.0,
+                            "abcClass", abc,
+                            "xyzClass", xyz
+                    )
+            ));
+        }
+
         if (reasons.isEmpty()) {
             reasons.add(new ExplanationReason(
                     "general",
-                    "Combined score improvement across velocity, co-pick, and capacity fit",
+                    "Суммарное улучшение скора по velocity, co-pick и вместимости",
                     scoreAfterMinus(sku, fromSlot, toSlot, ctx),
                     Map.of()
             ));
         }
 
         return reasons;
+    }
+
+    private static String abcLabel(double boost) {
+        return boost >= 1.2 ? "A" : boost <= 0.8 ? "C" : "B";
+    }
+
+    private static String xyzLabel(double boost) {
+        return boost >= 1.0 ? "X" : boost <= 0.85 ? "Z" : "Y";
     }
 
     private ExplanationImpact estimateImpact(

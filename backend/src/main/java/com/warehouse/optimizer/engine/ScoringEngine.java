@@ -34,12 +34,34 @@ public class ScoringEngine {
     private final WarehouseRepository warehouseRepo;
 
     // ──────────────────────────────────────────────────────────────────────────
+    // Analysis window helpers
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Start of the analysis window. Anchored to the warehouse's latest order date
+     * (when it is in the past) rather than wall-clock now(), so historical datasets
+     * still produce velocity / co-pick / XYZ signal with the default window.
+     */
+    private Instant windowStart(Long warehouseId, int days) {
+        Instant maxTs = orderLineRepo.findMaxOrderTimestamp(warehouseId);
+        Instant base = (maxTs != null && maxTs.isBefore(Instant.now())) ? maxTs : Instant.now();
+        return base.minus(days, ChronoUnit.DAYS);
+    }
+
+    /** Anchor date used for exponential time-decay weighting (matches {@link #windowStart}). */
+    private LocalDate windowAnchorDate(Long warehouseId) {
+        Instant maxTs = orderLineRepo.findMaxOrderTimestamp(warehouseId);
+        Instant base = (maxTs != null && maxTs.isBefore(Instant.now())) ? maxTs : Instant.now();
+        return base.atZone(java.time.ZoneOffset.UTC).toLocalDate();
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // Public API
     // ──────────────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public Map<Long, Double> computeRawCounts(Long warehouseId, int days) {
-        Instant since = Instant.now().minus(days, ChronoUnit.DAYS);
+        Instant since = windowStart(warehouseId, days);
         List<Object[]> rows = orderLineRepo.countOrdersPerSku(warehouseId, since);
         Map<Long, Double> raw = new LinkedHashMap<>();
         for (Object[] row : rows) {
@@ -60,11 +82,11 @@ public class ScoringEngine {
 
     @Transactional(readOnly = true)
     public Map<Long, Double> computeEwVelocity(Long warehouseId, int days, double lambda) {
-        Instant since = Instant.now().minus(days, ChronoUnit.DAYS);
+        Instant since = windowStart(warehouseId, days);
         List<Object[]> rows = orderLineRepo.findDailyOrderCounts(warehouseId, since);
         if (rows.isEmpty()) return computeVelocity(warehouseId, days);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = windowAnchorDate(warehouseId);
         Map<Long, Double> weighted = new HashMap<>();
         for (Object[] row : rows) {
             Long skuId = ((Number) row[0]).longValue();
@@ -100,7 +122,7 @@ public class ScoringEngine {
 
     @Transactional(readOnly = true)
     public Map<Long, Double> computeXyzStability(Long warehouseId, int days) {
-        Instant since = Instant.now().minus(days, ChronoUnit.DAYS);
+        Instant since = windowStart(warehouseId, days);
         List<Object[]> rows = orderLineRepo.findDailyOrderCounts(warehouseId, since);
         if (rows.isEmpty()) return Map.of();
         Map<Long, Map<String, Integer>> weekly = new HashMap<>();
@@ -143,7 +165,7 @@ public class ScoringEngine {
 
     @Transactional(readOnly = true)
     public Map<Long, Map<Long, Double>> computeCopickMatrix(Long warehouseId, int days) {
-        Instant since = Instant.now().minus(days, ChronoUnit.DAYS);
+        Instant since = windowStart(warehouseId, days);
         List<Object[]> pairs = orderLineRepo.findCopickPairsRaw(warehouseId, since);
         Map<Long, Map<Long, Integer>> raw = new HashMap<>();
         Map<Long, Integer> maxPerSku = new HashMap<>();
@@ -160,10 +182,80 @@ public class ScoringEngine {
         raw.forEach((skuId, partners) -> {
             int max = maxPerSku.getOrDefault(skuId, 1);
             Map<Long, Double> norm = new HashMap<>();
-            partners.forEach((partnerId, cnt) -> norm.put(partnerId, (double) cnt / max));
+            // Keep only the strongest partners — bounds the per-score inner loop so the
+            // greedy stays fast even on dense baskets (thousands of SKUs).
+            topPartners(partners, COPICK_TOP_K)
+                    .forEach((partnerId, cnt) -> norm.put(partnerId, (double) cnt / max));
             result.put(skuId, norm);
         });
         return result;
+    }
+
+    /** Cap on co-pick partners kept per SKU (strongest by co-occurrence/lift). */
+    private static final int COPICK_TOP_K = 25;
+
+    /** Top-K entries of a partner map by value (descending). */
+    private static <V extends Number> Map<Long, V> topPartners(Map<Long, V> partners, int k) {
+        if (partners.size() <= k) return partners;
+        return partners.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue().doubleValue(), a.getValue().doubleValue()))
+                .limit(k)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a, LinkedHashMap::new));
+    }
+
+    /**
+     * Wilson-stabilized, normalized velocity. For each SKU we treat "appears in an
+     * order" as a Bernoulli success over all orders and use the Wilson score lower
+     * bound, which shrinks noisy estimates from rarely-ordered SKUs. Result is
+     * normalized to [0,1] by the max so it slots into the existing formula.
+     */
+    /** Total distinct orders in the (data-anchored) analysis window — the N for lift/Wilson. */
+    @Transactional(readOnly = true)
+    public long countOrdersInWindow(Long warehouseId, int days) {
+        return orderLineRepo.countOrders(warehouseId, windowStart(warehouseId, days));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<Long, Double> computeVelocityWilson(Long warehouseId, int days) {
+        Instant since = windowStart(warehouseId, days);
+        long n = orderLineRepo.countOrders(warehouseId, since);
+        if (n <= 0) return Map.of();
+        List<Object[]> rows = orderLineRepo.countOrdersPerSku(warehouseId, since);
+        Map<Long, Double> wilson = new LinkedHashMap<>();
+        for (Object[] row : rows) {
+            long skuId = ((Number) row[0]).longValue();
+            double cnt = ((Number) row[1]).doubleValue();
+            wilson.put(skuId, Statistics.wilsonLowerBound(cnt, n));
+        }
+        double max = wilson.values().stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
+        if (max <= 0) return wilson;
+        wilson.replaceAll((id, v) -> v / max);
+        return wilson;
+    }
+
+    /**
+     * Co-pick lift per SKU pair: lift = P(X∩Y)/(P(X)P(Y)). Values &gt;1 mean the two
+     * SKUs are ordered together more than chance — the statistically meaningful basis
+     * for "store these together", unlike a raw co-occurrence count. Symmetric map.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, Map<Long, Double>> computeCopickLift(Long warehouseId, int days) {
+        Instant since = windowStart(warehouseId, days);
+        long n = orderLineRepo.countOrders(warehouseId, since);
+        if (n <= 0) return Map.of();
+        Map<Long, Double> cnt = computeRawCounts(warehouseId, days);
+        List<Object[]> pairs = orderLineRepo.findCopickPairsRaw(warehouseId, since);
+        Map<Long, Map<Long, Double>> lift = new HashMap<>();
+        for (Object[] row : pairs) {
+            long i = ((Number) row[0]).longValue();
+            long j = ((Number) row[1]).longValue();
+            double pair = ((Number) row[2]).doubleValue();
+            double l = Statistics.lift(pair, cnt.getOrDefault(i, 0.0), cnt.getOrDefault(j, 0.0), n);
+            lift.computeIfAbsent(i, k -> new HashMap<>()).put(j, l);
+            lift.computeIfAbsent(j, k -> new HashMap<>()).put(i, l);
+        }
+        lift.replaceAll((skuId, partners) -> new HashMap<>(topPartners(partners, COPICK_TOP_K)));
+        return lift;
     }
 
     @Transactional(readOnly = true)
@@ -229,6 +321,8 @@ public class ScoringEngine {
         Map<Long, Double> distances   = computeSlotDistances(warehouseId);
         Map<Long, Double> ergonomics  = computeErgonomics(allSlots);
         Map<Long, Map<Long, Double>> copick = computeCopickMatrix(warehouseId, 90);
+        Map<Long, Double> velocityWilson  = computeVelocityWilson(warehouseId, 90);
+        Map<Long, Map<Long, Double>> copickLift = computeCopickLift(warehouseId, 90);
 
         Map<Long, Sku>  skuMap  = allSkus.stream().collect(Collectors.toMap(Sku::getId, s -> s));
         Map<Long, Slot> slotMap = allSlots.stream().collect(Collectors.toMap(Slot::getId, s -> s));
@@ -258,7 +352,7 @@ public class ScoringEngine {
         for (Sku sku : sorted) {
             ScoringContext ctx = new ScoringContext(
                     velocity, copick, distances, skuMap, slotMap, proposedAssignments, weights,
-                    abcBoost, xyzBoost, ergonomics, constraints);
+                    abcBoost, xyzBoost, ergonomics, constraints, copickLift, velocityWilson);
 
             Long   bestSlotId = null;
             double bestScore  = Double.NEGATIVE_INFINITY;
@@ -283,11 +377,11 @@ public class ScoringEngine {
         // ── Pass 2: Build result comparing proposed vs current ─────────────────
         ScoringContext ctxCurrent = new ScoringContext(
                 velocity, copick, distances, skuMap, slotMap, currentAssignments, weights,
-                abcBoost, xyzBoost, ergonomics, constraints);
+                abcBoost, xyzBoost, ergonomics, constraints, copickLift, velocityWilson);
 
         ScoringContext ctxProposed = new ScoringContext(
                 velocity, copick, distances, skuMap, slotMap, proposedAssignments, weights,
-                abcBoost, xyzBoost, ergonomics, constraints);
+                abcBoost, xyzBoost, ergonomics, constraints, copickLift, velocityWilson);
 
         List<Assignment> result = new ArrayList<>();
         for (Sku sku : allSkus) {

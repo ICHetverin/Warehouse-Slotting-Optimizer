@@ -1,3 +1,80 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle, unobtrusive scrollbars to match the clean light theme */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+  background-clip: content-box;
+}
+
+.ant-app {
+  height: 100%;
+}
+
+/* Free up header space on phones */
+@media (max-width: 575px) {
+  .wso-hide-mobile { display: none !important; }
+}
+
+/* ── Motion: staggered page-load reveal + card depth ──────────────────────── */
+@keyframes wso-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.wso-page > * {
+  animation: wso-fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.wso-page > *:nth-child(1) { animation-delay: 0.02s; }
+.wso-page > *:nth-child(2) { animation-delay: 0.08s; }
+.wso-page > *:nth-child(3) { animation-delay: 0.14s; }
+.wso-page > *:nth-child(4) { animation-delay: 0.20s; }
+.wso-page > *:nth-child(5) { animation-delay: 0.26s; }
+
+.ant-card {
+  transition: box-shadow 0.22s ease, transform 0.22s ease, border-color 0.22s ease;
+}
+.ant-card:hover {
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07), 0 2px 6px rgba(15, 23, 42, 0.04);
+  transform: translateY(-2px);
+}
+
+/* Animated pick-route drawing on the warehouse map (uses pathLength=1 normalization) */
+@keyframes wso-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.wso-route {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: wso-draw 1.5s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wso-page > *,
+  .ant-card { animation: none !important; transition: none !important; transform: none !important; }
+  .wso-route { animation: none !important; stroke-dashoffset: 0 !important; }
+}
